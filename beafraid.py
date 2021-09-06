@@ -42,6 +42,14 @@ def at(delta: int, code: str) -> str:
     """
     return g(delta) + code + g(-delta)
 
+def assign(amount: int) -> str:
+    """Set the current cell value to `amount`.
+
+    Equivalent to `setzero() + change(amount)`.
+    """
+    return setzero() + c(amount)
+s = assign
+
 def loop(code: str) -> str:
     """Runs `code` until the current cell is zero.
 
@@ -101,7 +109,7 @@ def ifnonzero(then: str) -> str:
 
     Note that the current cell is cleared before the code.
     """
-    return loop(setzero() + then)
+    return loop(s(0) + then)
 
 def ifnonzeroelse(then: str, else_: str, temp: int = 1) -> str:
     """Runs `then` if the current cell is nonzero, otherwise runs `else_`.
@@ -109,7 +117,7 @@ def ifnonzeroelse(then: str, else_: str, temp: int = 1) -> str:
     Note that the current cell is cleared before the code.
     """
     return (
-        at(temp, setzero() + c(1))
+        at(temp, s(1))
         + ifnonzero(at(temp, c(-1)) + then)
         + at(temp, ifnonzero(at(-temp, else_)))
     )
