@@ -25,16 +25,18 @@ def movea(origin, target):
 def copya(origin, target, temp):
     return at(origin, copy(-origin + temp, -origin + target))
 
+def loopwhilenot(amount, code):
+    return c(-amount) + loop(c(amount) + code + c(-amount)) + c(amount)
+
 # frame format: break, 0, 0, func, temp, a, b, c
 print(
     # push func1(a=6)
     init([0, 0, 0, 1, 0, 6, 0, 0])
     # loop while break!=-1
-    + c(1)
-    + loop(
-        c(-1)
+    + loopwhilenot(
+        -1,
         # check func using temp
-        + switchon(
+        switchon(
             3,
             # default: save func0()
             at(3, s(0)),
@@ -54,10 +56,8 @@ print(
             at(6, s(0)) + movea(8+5, 6) + at(3, s(0) + c(4)) + at(8+3, s(2)) + at(5, c(-1)) + copya(5, 8+5, 7) + at(5, c(1)) + g(8),
             # func4(a, b): set a=b+^a and pop
             at(7, s(0)) + movea(8+5, 7) + at(5, s(0)) + movea(6, 5) + movea(7, 5) + g(-8),
-        )
-        + c(1)
+        ),
     )
-    + c(-1)
     # print ^a
     + at(8+5, ".")
 )
