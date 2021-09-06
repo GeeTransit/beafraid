@@ -37,6 +37,15 @@ def cont_switchon(delta, *cases, **kwargs):
     cases = [at(-CONT_ZERO, case) for case in cases]
     return at(CONT_ZERO, switchon(-CONT_ZERO + delta, *cases, **kwargs))
 
+def cont_save(func):
+    return at(CONT_FUNC, s(func))
+
+def cont_push(func):
+    return g(CONT_FRAMESIZE) + cont_save(func)
+
+def cont_pop():
+    return g(-CONT_FRAMESIZE)
+
 # frame format: break, 0, 0, func, temp, a, b, c
 print("".join([
     # push func1(a=6)
@@ -46,22 +55,22 @@ print("".join([
         # check func using temp
         cont_switchon(CONT_FUNC,
             # default: save func0()
-            at(CONT_FUNC, s(0)),
+            cont_save(0),
             # func0(): set break=-1
-            s(CONT_BREAKON),
+            at(CONT_BREAK, s(CONT_BREAKON)) + cont_save(0),
             # func1(a): save func0() and push func2(a=a)
-            at(CONT_FUNC, s(0)) + at(CONT_FRAMESIZE+CONT_FUNC, s(2)) + movea(CONT_A, CONT_FRAMESIZE+CONT_A) + g(CONT_FRAMESIZE),
+            movea(CONT_A, CONT_FRAMESIZE+CONT_A) + cont_save(0) + cont_push(2),
             # func2(a): check a using b
             cont_switchon(CONT_A,
                 # if a!=0 save func3(a=a) and push func2(a=a-1)
-                at(CONT_FUNC, s(3)) + at(CONT_FRAMESIZE+CONT_FUNC, s(2)) + at(CONT_A, c(-1)) + copya(CONT_A, CONT_FRAMESIZE+CONT_A, CONT_C) + at(CONT_A, c(1)) + g(CONT_FRAMESIZE),
+                at(CONT_A, c(-1)) + copya(CONT_A, CONT_FRAMESIZE+CONT_A, CONT_C) + at(CONT_A, c(1)) + cont_save(3) + cont_push(2),
                 # else set a=1 and pop
-                at(CONT_A, s(1)) + g(-CONT_FRAMESIZE),
+                at(CONT_A, s(1)) + cont_pop(),
             ),
             # func3(a): save func4(a=a, b=^a) and push func2(a=a-1)
-            at(CONT_B, s(0)) + movea(CONT_FRAMESIZE+CONT_A, CONT_B) + at(CONT_FUNC, s(4)) + at(CONT_FRAMESIZE+CONT_FUNC, s(2)) + at(CONT_A, c(-1)) + copya(CONT_A, CONT_FRAMESIZE+CONT_A, CONT_C) + at(CONT_A, c(1)) + g(CONT_FRAMESIZE),
+            movea(CONT_FRAMESIZE+CONT_A, CONT_B) + at(CONT_A, c(-1)) + copya(CONT_A, CONT_FRAMESIZE+CONT_A, CONT_C) + at(CONT_A, c(1)) + cont_save(4) + cont_push(2),
             # func4(a, b): set a=b+^a and pop
-            at(CONT_C, s(0)) + movea(CONT_FRAMESIZE+CONT_A, CONT_C) + at(CONT_A, s(0)) + movea(CONT_B, CONT_A) + movea(CONT_C, CONT_A) + g(-CONT_FRAMESIZE),
+            at(CONT_C, s(0)) + movea(CONT_FRAMESIZE+CONT_A, CONT_C) + at(CONT_A, s(0)) + movea(CONT_B, CONT_A) + movea(CONT_C, CONT_A) + cont_pop(),
         ),
     )),
     # print ^a
