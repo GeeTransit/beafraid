@@ -13,11 +13,8 @@ print(chr(f(6)), end="")
 from beafraid import *
 
 def switchon(delta, *cases, **kwargs):
-    return (
-        g(delta)
-        + switch(*[g(-delta) + case + g(1) for case in cases], **kwargs)
-        + g(-1)
-    )
+    cases = [g(-delta) + case for case in cases]
+    return g(delta) + switch(*cases, **kwargs)
 
 def movea(origin, target):
     return at(origin, move(-origin + target))
