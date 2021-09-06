@@ -135,7 +135,7 @@ def switch(default: str, *cases: str, temp: int = 1) -> str:
         return ifnonzeroelse(default, cases[0], temp)
     else:
         return ifnonzeroelse(
-            c(-1) + switch(*[c(1) + case for case in [default, *cases[1:]]]),
+            c(-1) + switch(*[c(1) + case for case in [default, *cases[1:]]], temp=temp),
             cases[0],
             temp,
         )
