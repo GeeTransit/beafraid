@@ -107,14 +107,14 @@ def init(data: str) -> str:
 def ifnonzero(then: str) -> str:
     """Runs `then` if the current cell is nonzero.
 
-    Note that the current cell is cleared before the code.
+    Note that the current cell is cleared after the code.
     """
-    return loop(s(0) + then)
+    return loop(then + s(0))
 
 def ifnonzeroelse(then: str, else_: str, temp: int = 1) -> str:
     """Runs `then` if the current cell is nonzero, otherwise runs `else_`.
 
-    Note that the current cell is cleared before the code.
+    Note that the current cell is cleared after the code.
     """
     return (
         at(temp, s(1))
