@@ -42,13 +42,13 @@ print("".join([
     # push func1(a=6)
     init([0, 0, 0, 1, 0, 6, 0, 0]),
     # loop while break!=-1
-    loopwhilenot(CONT_BREAKON,
+    at(CONT_BREAK, loopwhilenot(CONT_BREAKON,
         # check func using temp
         cont_switchon(CONT_FUNC,
             # default: save func0()
             at(CONT_FUNC, s(0)),
             # func0(): set break=-1
-            c(CONT_BREAKON),
+            s(CONT_BREAKON),
             # func1(a): save func0() and push func2(a=a)
             at(CONT_FUNC, s(0)) + at(CONT_FRAMESIZE+CONT_FUNC, s(2)) + movea(CONT_A, CONT_FRAMESIZE+CONT_A) + g(CONT_FRAMESIZE),
             # func2(a): check a using b
@@ -63,7 +63,7 @@ print("".join([
             # func4(a, b): set a=b+^a and pop
             at(CONT_C, s(0)) + movea(CONT_FRAMESIZE+CONT_A, CONT_C) + at(CONT_A, s(0)) + movea(CONT_B, CONT_A) + movea(CONT_C, CONT_A) + g(-CONT_FRAMESIZE),
         ),
-    ),
+    )),
     # print ^a
     at(CONT_FRAMESIZE+CONT_A, "."),
 ]))
