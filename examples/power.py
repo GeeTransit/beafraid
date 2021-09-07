@@ -38,19 +38,19 @@ def cont_switchon(delta, *cases, **kwargs):
     return at(CONT_ZERO, switchon(-CONT_ZERO + delta, *cases, **kwargs))
 
 def cont_save(func):
-    return at(CONT_FUNC, s(func))
+    return at(CONT_FUNC_TEMP, s(0)) + at(CONT_FUNC, s(func))
 
 def cont_push(func):
     return g(CONT_FRAMESIZE) + cont_save(func)
 
 def cont_pop():
-    return g(-CONT_FRAMESIZE)
+    return cont_save(0) + g(-CONT_FRAMESIZE)
 
 def cont_loop(code):
     return at(CONT_BREAK, loopwhilenot(CONT_BREAKON, code))
 
 def cont_break():
-    return at(CONT_BREAK, s(CONT_BREAKON))
+    return at(CONT_BREAK, s(CONT_BREAKON)) + cont_save(0)
 
 # frame format: break, 0, 0, func, temp, a, b, c
 print("".join([
