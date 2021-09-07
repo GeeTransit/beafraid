@@ -34,11 +34,13 @@ CONT_FRAMESIZE = 8
 CONT_BREAKON = -1
 
 def cont_switchon(delta, *cases, **kwargs):
-    cases = [at(-CONT_ZERO, case) for case in cases]
+    # The pointer must be at some other jump point because the temporary cell
+    # is zeroed before each case.
+    cases = [at(-CONT_ZERO, at(delta + 1, s(0)) + case) for case in cases]
     return at(CONT_ZERO, switchon(-CONT_ZERO + delta, *cases, **kwargs))
 
 def cont_save(func):
-    return at(CONT_FUNC_TEMP, s(0)) + at(CONT_FUNC, s(func))
+    return at(CONT_FUNC, s(func))
 
 def cont_push(func):
     return g(CONT_FRAMESIZE) + cont_save(func)
