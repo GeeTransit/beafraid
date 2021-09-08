@@ -57,7 +57,7 @@ def cont_break():
 # frame format: break, 0, 0, func, temp, a, b, c
 print("".join([
     # push func1(a=6)
-    init([0, 0, 0, 1, 0, 6, 0, 0]),
+    at(CONT_A, s(6)) + cont_save(1),
     # loop while break!=-1
     cont_loop(
         # check func using temp
