@@ -12,6 +12,9 @@ print(chr(f(6)), end="")
 
 from beafraid import *
 
+def join(*parts):
+    return "".join(parts)
+
 def switchon(delta, *cases, **kwargs):
     cases = [g(-delta) + case for case in cases]
     return g(delta) + switch(*cases, **kwargs)
@@ -55,7 +58,7 @@ def cont_break():
     return at(CONT_BREAK, s(CONT_BREAKON)) + cont_save(0)
 
 # frame format: break, 0, 0, func, temp, a, b, c
-print("".join([
+print(join(
     # push func1(a=6)
     at(CONT_A, s(6)) + cont_save(1),
     # loop while break!=-1
@@ -83,4 +86,4 @@ print("".join([
     ),
     # print ^a
     at(CONT_FRAMESIZE+CONT_A, "."),
-]))
+))
