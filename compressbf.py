@@ -17,6 +17,7 @@ def remove_impossible_loops(
     *,
     unmatched_end_brackets: str = NORMAL,
     unknown_characters: str = KEEP,
+    initial_loop: str = REMOVE,
 ) -> str:
     """Remove header loops or loops directly after other loops.
 
@@ -28,17 +29,26 @@ def remove_impossible_loops(
     If unknown_characters is KEEP, unknown characters will be kept in the
     output. If REMOVE, they will be removed from the output,
 
+    If initial_loop is REMOVE, the first loop will be removed as if there was
+    a loop before it. If KEEP, the first loop will be kept.
+
     """
     if unmatched_end_brackets not in [NORMAL, KEEP, REMOVE]:
         raise ValueError(f"invalid action: {unmatched_end_brackets!r}")
     if unknown_characters not in [KEEP, REMOVE]:
         raise ValueError(f"invalid action: {unknown_characters!r}")
+    if initial_loop not in [KEEP, REMOVE]:
+        raise ValueError(f"invalid action: {initial_loop!r}")
 
     # Initialize state
     result = []  # List of characters to be joined and returned
     depth = 0  # Used to identify unmatched end brackets
     can_skip = True  # Only true initially and after other loops
     skip_depth = 0  # Number of brackets deep or 0 when not skipping
+
+    # If we're keeping the initial loop, clear can_skip
+    if initial_loop == KEEP:
+        can_skip = False
 
     # Loop over code's characters
     for char in code:
