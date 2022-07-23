@@ -4,6 +4,8 @@ Various functions are provided that take strings of BF code and return a new
 string.
 """
 
+import warnings
+
 def goto(delta: int) -> str:
     """Move the cell pointer by `delta` cells where left is positive.
 
@@ -35,12 +37,28 @@ def setzero() -> str:
     """
     return "[-]"
 
+# Return a single number
+def _one(nums) -> int:
+    if isinstance(nums, int):
+        return nums
+    if len(nums) == 1:
+        return list(nums)[0]
+    raise TypeError("could not get an offset")
+
+# Return a list of numbers
+def _many(nums) -> list[int]:
+    if isinstance(nums, int):
+        return [nums]
+    if isinstance(nums, list):
+        return nums
+    return list(nums)
+
 def at(delta: int, code: str) -> str:
     """Runs `code` offset by `delta` cells.
 
     Equivalent to `goto(delta) + code + goto(-delta)`.
     """
-    return g(delta) + code + g(-delta)
+    return "".join(g(d) + code + g(-d) for d in _many(delta))
 
 def assign(amount: int) -> str:
     """Set the current cell value to `amount`.
@@ -71,7 +89,8 @@ def move(delta: int) -> str:
 
     Raises ValueError if delta is 0.
     """
-    if delta == 0:
+    delta = _many(delta)
+    if 0 in delta:
         raise ValueError("target cell cannot be current cell")
     return loopdown(at(delta, c(1)))
 
@@ -93,7 +112,11 @@ def copy(temp: int, delta: int) -> str:
 
     Raises ValueError if either delta is 0.
     """
-    return move(temp) + at(temp, move2(-temp + delta, -temp))
+    temp = _one(temp)
+    delta = _many(delta)
+    if temp in delta:
+        raise ValueError("target cell cannot be temporary cell")
+    return move(temp) + at(temp, loopdown(at(-temp, c(1) + at(delta, c(1)))))
 
 def init(data: list[int]) -> str:
     """Initializes cells according to `data`.
@@ -116,6 +139,7 @@ def ifnonzeroelse(then: str, else_: str, temp: int = 1) -> str:
 
     Note that the current cell is cleared after the code.
     """
+    temp = _one(temp)
     return (
         at(temp, s(1))
         + ifnonzero(at(temp, c(-1)) + then)
