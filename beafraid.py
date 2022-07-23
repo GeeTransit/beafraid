@@ -101,6 +101,7 @@ def move2(delta: int, delta2: int) -> str:
 
     Raises ValueError if either delta is 0.
     """
+    warnings.warn("use move([delta, delta2])) instead", DeprecationWarning, 2)
     if delta == 0 or delta2 == 0:
         raise ValueError("target cell cannot be current cell")
     return loopdown(at(delta, c(1)) + at(delta2, c(1)))
