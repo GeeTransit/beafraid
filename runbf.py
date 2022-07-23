@@ -69,8 +69,11 @@ def main(argv):
         print(f"Usage: python runbf.py <filename>", file=sys.stderr)
         return 2
 
-    with open(argv[1]) as file:
-        program = file.read()
+    if argv[1] == "-":
+        program = sys.stdin.read()
+    else:
+        with open(argv[1]) as file:
+            program = file.read()
 
     gen = runbf(program)
     inp = None
