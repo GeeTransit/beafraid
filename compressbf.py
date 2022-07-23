@@ -262,8 +262,11 @@ def main(argv):
     if len(argv) < 2:
         print(f"Usage: python compressbf.py <filename>", file=sys.stderr)
         return 2
-    with open(argv[1]) as file:
-        program = file.read()
+    if argv[1] == "-":
+        program = sys.stdin.read()
+    else:
+        with open(argv[1]) as file:
+            program = file.read()
     print(compress(program), end="")
 
 if __name__ == "__main__":
