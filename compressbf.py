@@ -1,5 +1,6 @@
 """Compress BF code."""
 
+import sys
 from collections import defaultdict
 
 from beafraid import goto, change
@@ -257,13 +258,13 @@ def test_remove_impossible_loops_ignore_unmatched_end_brackets():
 
 # - Command line
 
-def main():
-    import sys
-    if len(sys.argv) < 2:
-        sys.exit(f"Usage: python compressbf.py <filename>")
-    with open(sys.argv[1]) as file:
+def main(argv):
+    if len(argv) < 2:
+        print(f"Usage: python compressbf.py <filename>", file=sys.stderr)
+        return 2
+    with open(argv[1]) as file:
         program = file.read()
     print(compress(program), end="")
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)
