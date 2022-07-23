@@ -95,7 +95,7 @@ def copy(temp: int, delta: int) -> str:
     """
     return move(temp) + at(temp, move2(-temp + delta, -temp))
 
-def init(data: str) -> str:
+def init(data: list[int]) -> str:
     """Initializes cells according to `data`.
 
         >>> init([1, 2])
