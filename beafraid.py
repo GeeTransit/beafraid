@@ -132,10 +132,18 @@ def switch(default: str, *cases: str, temp: int = 1) -> str:
     if len(cases) == 0:
         return default
     elif len(cases) == 1:
-        return ifnonzeroelse(default, cases[0], temp)
+        return ifnonzeroelse(
+            default,
+            cases[0],
+            temp=temp,
+        )
     else:
         return ifnonzeroelse(
-            c(-1) + switch(*[c(1) + case for case in [default, *cases[1:]]], temp=temp),
+            c(-1) + switch(
+                c(1) + default,
+                *[c(1) + case for case in cases[1:]],
+                temp=temp,
+            ),
             cases[0],
-            temp,
+            temp=temp,
         )
