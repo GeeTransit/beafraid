@@ -68,31 +68,53 @@ def assign(amount: int) -> str:
     return setzero() + c(amount)
 s = assign
 
-def loop(code: str) -> str:
-    """Runs `code` until the current cell is zero.
+def loop(a, b=None) -> str:
+    """loop(code) -> run code until current cell is zero
+    loop(delta, code) -> run code until delta cell is zero
+
+    Runs `code` until the current/delta cell is zero.
 
     Equivalent to `"[" + code + "]"`.
     """
-    return "[" + code + "]"
+    if b is None:
+        a, b = 0, a
+    delta, code = a, b
+    delta = _many(delta)
+    return "".join(at(d, "[") + code + at(d, "]") for d in delta)
 
-def loopdown(code: str) -> str:
-    """Runs `code` until the current cell is zero while decrementing.
+def loopdown(a, b=None) -> str:
+    """loopdown(code) -> run code until current cell is zero with decrement
+    loopdown(delta, code) -> run code until delta cell is zero with decrement
+
+    Runs `code` until the current/delta cell is zero while decrementing.
 
     Equivalent to `loop(change(-1) + code)`.
     """
-    return loop(c(-1) + code)
-
-def move(delta: int) -> str:
-    """Set cell `delta` away to current cell value and clear current cell.
-
-    Equivalent to `loopdown(at(delta, change(1))`.
-
-    Raises ValueError if delta is 0.
-    """
+    if b is None:
+        a, b = 0, a
+    delta, code = a, b
     delta = _many(delta)
-    if 0 in delta:
+    return "".join(loop(d, at(d, c(-1)) + code) for d in delta)
+
+def move(a, b=None) -> str:
+    """move(target) -> move current to target
+    move(origin, target) -> move origin to target
+
+    Set cell `target` away to current/origin cell value and clear
+    current/origin cell.
+
+    Equivalent to `at(origin, loopdown(at(-origin + delta, change(1))))`.
+
+    Raises ValueError if target is 0.
+    """
+    if b is None:
+        a, b = 0, a
+    origin, delta = a, b
+    origin = _many(origin)
+    delta = _many(delta)
+    if any(o in delta for o in origin):
         raise ValueError("target cell cannot be current cell")
-    return loopdown(at(delta, c(1)))
+    return loopdown(origin, at(delta, c(1)))
 
 def move2(delta: int, delta2: int) -> str:
     """Move current cell value to both cells `delta` and `delta2`.
@@ -101,7 +123,7 @@ def move2(delta: int, delta2: int) -> str:
 
     Raises ValueError if either delta is 0.
     """
-    warnings.warn("use move([delta, delta2])) instead", DeprecationWarning, 2)
+    warnings.warn("use move([delta, delta2]) instead", DeprecationWarning, 2)
     if delta == 0 or delta2 == 0:
         raise ValueError("target cell cannot be current cell")
     return loopdown(at(delta, c(1)) + at(delta2, c(1)))
@@ -117,7 +139,7 @@ def copy(temp: int, delta: int) -> str:
     delta = _many(delta)
     if temp in delta:
         raise ValueError("target cell cannot be temporary cell")
-    return move(temp) + at(temp, loopdown(at(-temp, c(1) + at(delta, c(1)))))
+    return move(temp) + loopdown(temp, at([0, *delta], c(1)))
 
 def init(data: list[int]) -> str:
     """Initializes cells according to `data`.
@@ -128,37 +150,57 @@ def init(data: list[int]) -> str:
     """
     return "".join(c(v) + g(1) for v in data) + g(-len(data))
 
-def ifnonzero(then: str) -> str:
-    """Runs `then` if the current cell is nonzero.
+def ifnonzero(a, b=None) -> str:
+    """ifnonzero(then) -> run then if current cell is nonzero
+    ifnonzero(delta, then) -> run then if delta cell is nonzero
 
-    Note that the current cell is cleared after the code.
+    Runs `then` if the current/delta cell is nonzero.
+
+    Note that the current/delta cell is cleared after the code.
     """
-    return loop(then + s(0))
+    if b is None:
+        a, b = 0, a
+    delta, then = a, b
+    delta = _one(delta)
+    return loop(delta, then + at(delta, s(0)))
 
-def ifnonzeroelse(then: str, else_: str, temp: int = 1) -> str:
-    """Runs `then` if the current cell is nonzero, otherwise runs `else_`.
+def ifnonzeroelse(a, b, d=None, *, temp=None) -> str:
+    """ifnonzeroelse(then, else_, temp=1) -> if current nonzero then, else
+    ifnonzeroelse(delta, then, else_, temp=1) -> if delta nonzero then, else
 
-    Note that the current cell is cleared after the code.
+    Runs `then` if the current/delta cell is nonzero, otherwise runs `else_`.
+
+    Note that the current/delta cell is cleared after the code.
     """
+    if d is None:
+        a, b, d = 0, a, b
+    delta, then, else_ = a, b, d
+    delta = _one(delta)
     temp = _one(temp)
     return (
-        at(temp, s(1))
-        + ifnonzero(at(temp, c(-1)) + then)
-        + at(temp, ifnonzero(at(-temp, else_)))
+        at(temp, c(1))
+        + ifnonzero(delta, at(temp, c(-1)) + then)
+        + ifnonzero(temp, at(temp, c(-1)) + else_)
     )
 
-def switch(default: str, *cases: str, temp: int = 1) -> str:
-    """Runs the case matching the current cell value or default otherwise.
+def switch(default: str = None, *cases: str, temp: int = None, on: int = 0) -> str:
+    """Runs the case matching the current/on cell value or default otherwise.
 
-    Requires one zeroed temporary cell after the current cell.
+    Requires one zeroed temporary cell after the current/on cell.
 
-    Note that the current cell is cleared after each case.
+    Note that the current/on cell is cleared after each case.
     """
+    if default is None:
+        return lambda default, *cases, temp=temp, on=on: switch(default, *cases, temp=temp, on=on)
+    if on is None:
+        on = 0
+    if temp is None:
+        temp = on + 1
     cases = list(cases)
     for i, case in enumerate(cases):
         if not isinstance(case, list):
             cases[i] = [cases[i-1][0] + 1 if i > 0 else 0, case]
     code = default
     for x, case in reversed(cases):
-        code = c(-x) + ifnonzeroelse(c(x) + code, c(x) + case, temp=temp)
+        code = at(on, c(-x)) + ifnonzeroelse(on, at(on, c(x)) + code, at(on, c(x)) + case, temp=temp)
     return code
