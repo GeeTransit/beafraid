@@ -96,6 +96,21 @@ def loopdown(a, b=None) -> str:
     delta = _many(delta)
     return "".join(loop(d, at(d, c(-1)) + code) for d in delta)
 
+def loopuntil(amount, a, b=None):
+    """loopuntil(amount, code) -> run code until current cell equals amount
+    loopuntil(amount, delta, code) -> run code until delta cell equals amount
+
+    Runs `code` until the current/delta cell is equal to `amount`.
+    """
+    if b is None:
+        a, b = 0, a
+    delta, code = a, b
+    return (
+        at(delta, c(-amount))
+        + loop(delta, at(delta, c(amount)) + code + at(delta, c(-amount)))
+        + at(delta, c(amount))
+    )
+
 def move(a, b=None) -> str:
     """move(target) -> move current to target
     move(origin, target) -> move origin to target
