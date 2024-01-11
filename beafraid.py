@@ -154,8 +154,11 @@ def switch(default: str, *cases: str, temp: int = 1) -> str:
 
     Note that the current cell is cleared after each case.
     """
-    code = c(len(cases)) + default
-    cases = [c(i) + case for i, case in enumerate(cases)]
-    for case in reversed(cases):
-        code = ifnonzeroelse(c(-1) + code, case, temp=temp)
+    cases = list(cases)
+    for i, case in enumerate(cases):
+        if not isinstance(case, list):
+            cases[i] = [cases[i-1][0] + 1 if i > 0 else 0, case]
+    code = default
+    for x, case in reversed(cases):
+        code = c(-x) + ifnonzeroelse(c(x) + code, c(x) + case, temp=temp)
     return code
