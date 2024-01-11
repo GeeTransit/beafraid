@@ -183,7 +183,7 @@ def simplify_constant_operations(code: str) -> str:
             continue
 
         # If the operation isn't simplifiable
-        elif char in ",.[]":
+        elif char in ",.[]#":
             # If there are updates to be processed, process, generate, and
             # insert the code before this operation.
             if _check_updates():
