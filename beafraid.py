@@ -46,7 +46,7 @@ def _one(nums) -> int:
     raise TypeError("could not get an offset")
 
 # Return a list of numbers
-def _many(nums) -> list[int]:
+def _many(nums) -> list:
     if isinstance(nums, int):
         return [nums]
     if isinstance(nums, list):
@@ -156,7 +156,7 @@ def copy(temp: int, delta: int) -> str:
         raise ValueError("target cell cannot be temporary cell")
     return move(temp) + loopdown(temp, at([0, *delta], c(1)))
 
-def init(data: list[int]) -> str:
+def init(data: list) -> str:
     """Initializes cells according to `data`.
 
         >>> init([1, 2])

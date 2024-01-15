@@ -82,17 +82,16 @@ def start(offset):
         5
 
     """
-    match offset:
-        case int():
-            return offset
-        case range():
-            return offset.start
-        case Offset():
-            return start(offset(0))
-        case Struct():
-            return offset.offset
-        case tuple() | list():
-            return start(offset[0])
+    if isinstance(offset, int):
+        return offset
+    if isinstance(offset, range):
+        return offset.start
+    if isinstance(offset, Offset):
+        return start(offset(0))
+    if isinstance(offset, Struct):
+        return offset.offset
+    if isinstance(offset, (tuple, list)):
+        return start(offset[0])
     raise TypeError(f"cannot pass a {type(offset).__name__} object to start")
 
 def size(offset):
@@ -119,15 +118,14 @@ def size(offset):
         2
 
     """
-    match offset:
-        case int():
-            return 1
-        case range():
-            return len(offset)
-        case Offset() | Struct():
-            return len(offset)
-        case tuple() | list():
-            return sum(size(part) for part in offset)
+    if isinstance(offset, int):
+        return 1
+    if isinstance(offset, range):
+        return len(offset)
+    if isinstance(offset, (Offset, Struct)):
+        return len(offset)
+    if isinstance(offset, (tuple, list)):
+        return sum(size(part) for part in offset)
     raise TypeError(f"cannot pass a {type(offset).__name__} object to size")
 
 def shift(offset, by: int):
@@ -143,25 +141,24 @@ def shift(offset, by: int):
         Offset(5)
 
     """
-    match offset:
-        case int():
-            return offset + by
-        case range():
-            return range(
-                offset.start + by,
-                offset.stop + by,
-                offset.step,
-            )
-        case tuple() | list():
-            return tuple(shift(part, by) for part in offset)
-        case Offset():
-            obj = copy.copy(offset)
-            obj.by += by
-            return obj
-        case Struct():
-            obj = copy.copy(offset)
-            obj.offset += by
-            return obj
+    if isinstance(offset, int):
+        return offset + by
+    if isinstance(offset, range):
+        return range(
+            offset.start + by,
+            offset.stop + by,
+            offset.step,
+        )
+    if isinstance(offset, (tuple, list)):
+        return tuple(shift(part, by) for part in offset)
+    if isinstance(offset, Offset):
+        obj = copy.copy(offset)
+        obj.by += by
+        return obj
+    if isinstance(offset, Struct):
+        obj = copy.copy(offset)
+        obj.offset += by
+        return obj
     raise TypeError(f"cannot pass a {type(offset).__name__} object to shift")
 
 class Offset:
