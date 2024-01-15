@@ -211,6 +211,90 @@ def simplify_constant_operations(code: str) -> str:
     # Return the cleaned code
     return "".join(result)
 
+def remove_before_clears(code: str) -> str:
+    """Remove updates when the cell is cleared afterwards"""
+    import re
+    pattern = re.compile(r"\[(?:-(?:--)*|\+(?:\+\+)*)\]")
+
+    i = 0
+    will_remove_indices = set()
+    while True:
+        match = pattern.search(code, i)
+        if not match:
+            break
+
+        i = match.end()
+        j = match.start()
+        pos = 0
+        stack = []
+        while True:
+            j -= 1
+            if j < 0:
+                break
+            if j in will_remove_indices:
+                continue
+
+            char = code[j]
+            if char == "[":
+                break
+            if char == "]":
+                old_j = j
+                depth = 1
+                while depth:
+                    j -= 1
+                    if j < 0:
+                        break
+                    if code[j] == "]":
+                        depth += 1
+                    elif code[j] == "[":
+                        depth -= 1
+                if not depth:
+                    loop = "".join(code[j:old_j].split())
+                    if set(loop) <= {"+", "-"}:
+                        if len(loop) % 2 == 1:
+                            continue
+                break
+
+            elif char in "+-":
+                if pos == 0:
+                    will_remove_indices.add(j)
+            elif char == "<":
+                pos -= 1
+            elif char == ">":
+                pos += 1
+
+    if not will_remove_indices:
+        return code
+    return "".join(char for i, char in enumerate(code) if i not in will_remove_indices)
+
+def reduce_doubled_loops(code: str) -> str:
+    """Change code of the form ``[[...]]`` into ``[...]``"""
+    starting_brace = {}
+    will_remove_indices = set()
+    unmatched_braces = []
+    last_ending_brace = None
+
+    for i, char in enumerate(code):
+        if char == "[":
+            unmatched_braces.append(i)
+        elif char == "]":
+            if unmatched_braces:
+                starting_brace[i] = unmatched_braces.pop()
+                if last_ending_brace is None:
+                    last_ending_brace = i
+                elif (
+                    not code[last_ending_brace+1:i].strip()
+                    and not code[starting_brace[i]+1:starting_brace[last_ending_brace]].strip()
+                ):
+                    will_remove_indices.add(i)
+                    will_remove_indices.add(starting_brace.pop(i))
+                else:
+                    last_ending_brace = None
+
+    if not will_remove_indices:
+        return code
+    return "".join(char for i, char in enumerate(code) if i not in will_remove_indices)
+
 def compress(code: str) -> str:
     """Compress and return the compressed code.
 
@@ -218,6 +302,8 @@ def compress(code: str) -> str:
 
     - remove_impossible_loops
     - simplify_constant_operations
+    - remove_before_clears
+    - reduce_doubled_loops
 
     """
     # Remove loops that follow other loops
@@ -225,6 +311,8 @@ def compress(code: str) -> str:
         old_len = len(code)
         code = remove_impossible_loops(code)
         code = simplify_constant_operations(code)
+        code = remove_before_clears(code)
+        code = reduce_doubled_loops(code)
         if len(code) == old_len:
             break
     return code
