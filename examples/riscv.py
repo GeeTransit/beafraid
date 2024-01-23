@@ -44,7 +44,7 @@ def _SKIPTEST_(name):
         test_sltop_random
         test_sll_random
         test_sr_random
-        #test_system_random
+        test_system_random
     '''.split()
 
 
@@ -164,7 +164,12 @@ class Icp437:
     def convert(self, data):
         mapping = self.mapping
         return "".join([mapping[char] for char in data])
-icp437 = Icp437().convert
+    def dump(self, data, length=80, func=print):
+        convert = self.convert
+        for i in range(len(data))[::length]:
+            func(convert(data[i:i+length]))
+Icp437.i = Icp437()
+icp437 = Icp437.i.convert
 
 r'''
 [ general design ]
@@ -337,10 +342,13 @@ def LESSTHAN():
         at(h.F, s(0)), move(h.N, h.F),  # N => F
     )
 
+def ON_MAINLOOP():
+    BB, F, N, xyzw, S, x1, x2, xd, imm = DECODE_ARGS()
+    return at(F, "#")
 def MAINLOOP():
     BB, F, N, xyzw, S, x1, x2, xd, imm = DECODE_ARGS()
     return loopuntil(ERROR.f, F, join(  # while F != -1:
-        at(F, "#"),
+        ON_MAINLOOP(),
         switch(on=F)(  # switch F:
             at(F, s(ERROR.f)) + g(-2),
             *[[func.f, func() + g(-2)] for func in functions if not hasattr(func, "name")],
@@ -1218,7 +1226,7 @@ def whenthe(func):
         assert f == 255 or 0 <= f <= 5
         if f != 255:
             assert _INSTR(n)
-            assert "IISRBIUUIJI"[n-1] == "RISBUJ"[f]
+            assert "IISRBRUUIJI"[n-1] == "RISBUJ"[f], n
             okay.append([n, i])
             _DEBUG_ and print(f'{i:07b} {"RISBUJ!"[f if f != 255 else -1]} n={n} {_INSTR(n)} {"i"*_x2}')
         # check that bit 7 isnt used
@@ -1334,6 +1342,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 # add/sub (0), sll (1), slt (2), sltu (3), xor (4), srl/sra (5), or (6), and (7)
                                 at(F, s(0)),  # F = 0
                                 at(N, s(4)),  # N = 4
+                                at(imm[0], s(1)),
                                 LAND(F),  # land __FN
                             ),
                             # case 6:
@@ -1704,11 +1713,18 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
             # unpack_bits(w, [])
             unpack_bits(xyzw[3], BB),
             # { if [7]: [7] = 0; [5] += 2 }; { if [5]: [5] = 0; [4] += 2 }; { if [4]: [4] = 0; [3] += 2 }; { if [3]: [3] = 0; [2] += 2 }; { if [2]: [2] = 0; [1] += 2 }
-            move(B[7], 2*[B[5]]), INFO_BITS(0, 1, 6, 7),  # 0, 1, 6 have info
+            INFO_BITS(0, 1, 6, 7),  # 0, 1, 6 have info
             move(B[0], 16*[x2]),  # if [0]: [0] = 0; 2 += 16
-            ifnonzero(B[6], at(S, c(8))),  # if [6]: [6] = 0; S += 8
             # ensure all other bits are 0
-            ifnonzero(B[1], at(N, s(0))),  # if [1]: [1] = 0; N = ERROR
+            ifnonzero(imm[0], join(
+                ifnonzero(B[6], at(S, c(8))),  # if [6]: [6] = 0; S += 8
+                ifnonzero(B[1], at(N, s(0))),  # if [1]: [1] = 0; N = ERROR
+                ifnonzero(B[7], at(N, s(0))),  # if [1]: [1] = 0; N = ERROR
+            )),
+            move(B[7], 2*[B[6]]),
+            move(B[6], 4*[B[4]]),
+            move(B[4], 8*[B[1]]),
+            move(B[1], imm[0]),
 
             # S=funct3+((funct7&0x20)<<3) 1=rs1 2=rs2 d=rd
             at(F, s(ERROR.f)), at(F-1, s(22)), ifnonzero(N, at(F, s(0)) + move(N, F) + at(F-1, s(0))), move(F-1, N),  # N => F
@@ -1996,6 +2012,9 @@ _AND_1 = mark_function("_AND_1")
 _SLTU_1 = mark_function("_SLTU_1")
 _SLL_1 = mark_function("_SLL_1")
 _SRL_1 = mark_function("_SRL_1")
+
+def ON_FENCE(): h = DECODE_FORMAT(); return at(h.F, s(ERROR.f)) + at(h.N, s(8))
+def ON_SYSTEM(): h = DECODE_FORMAT(); return at(h.F, s(ERROR.f)) + at(h.N, s(7))
 
 @whenthe3
 def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
@@ -2529,8 +2548,7 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             # in either case, exit the interpreter loop.
             # we assume that surrounding brainfuck code will examine the state
             # of the interpreter and optionally resume the interpreter loop
-            at(h.F, s(ERROR.f)),
-            at(h.N, s(7)),
+            ON_SYSTEM(),
             g(-2),
         )],
 
@@ -2603,8 +2621,7 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             # fence
             # x1 xd imm
             # let wrapping code do something (maybe flush i/o idk)
-            at(h.F, s(ERROR.f)),
-            at(h.N, s(8)),
+            ON_FENCE(),
             g(-2),
         )],
     ) + LAUNCH
@@ -2989,7 +3006,6 @@ def _SRLI_1():
             at(BBB[1:-1], s(0)),
         )),
         move(BBB[0], h.rd[3]),
-        at(h.rd[1], "#"),
         move(h.rd[1], BBB[0]),
         ifnonzero(BBB[0], join(
             # at(h.rd[2], c(1)),
@@ -4383,3 +4399,471 @@ if "--output-mainloop" in sys.argv:
     print("Place RISCV instructions starting at 192 cells to the right".center(80).rstrip())
     for i in range(len(code))[::80]:
         print(code[i:i+80])
+
+# TODO: Add wrapping environment
+elif "--output-simple-iobreak" in sys.argv:
+    code = MAINLOOP().replace("#", "")
+    import compressbf; code = compressbf.compress(","+code)[1:]
+    # format: we take up 64 bytes at the start to align nicely with the rest
+    # of the head. however, we only use the last 4 bytes as state (landing)
+    L4 = shift(range(4), 60)
+    LF = L4[2]; LN = L4[3]
+    LZ = L4[0] + len(L4)
+    hhead = shift(DECODE_FORMAT(), LZ)
+    iobreak_code = join(
+        at(LN, c(1)),
+        loopuntil(-1, LF, join(
+            switch(on=LF)(
+                join(
+                    at(LF, s(-1)),
+                    g(-2),
+                ),
+                # 0: run mainloop until error
+                [0, join(
+                    at(LF, s(0)),
+                    move(LN, LF),
+                    at(LZ, code),
+                    at(hhead.F, s(0)),
+                    move(hhead.N, LN),
+                    g(-2),
+                )],
+                # 1: check error type
+                [1, join(
+                    at(LF, s(0)),
+                    move(LN, LF),
+                    switch(on=LF)(
+                        join(
+                            # unknown??
+                            at(LF, s(-1)),
+                            g(-2),
+                        ),
+                        # 7: ecall, ebreak
+                        [7, join(
+                            # switch on rs2
+                            at(LF, s(0)),
+                            move(LN, LF),
+                            switch(on=LF)(
+                                join(
+                                    # unknown :(
+                                    at(LF, s(-1)),
+                                    g(-2),
+                                ),
+                                # 0: ecall
+                                [0, join(
+                                    # switch on the a7 (x17) register
+                                    at(LF, s(0)),
+                                    move(hhead.end + 17*4, LF),
+                                    switch(on=LF)(
+                                        join(
+                                            # unknown :(
+                                            at(LF, s(-1)),
+                                            g(-2),
+                                        ),
+                                        # 0: input into a0 (x10)
+                                        [0, join(
+                                            at(hhead.end + 10*4, ","),
+                                            at(hhead.end + 10*4 + 1, s(0)),
+                                            at(hhead.end + 10*4 + 2, s(0)),
+                                            at(hhead.end + 10*4 + 3, s(0)),
+                                            at(hhead.F, s(INCPC.f)),
+                                            at(LF, s(0)),
+                                            at(LN, s(1)),
+                                            g(-2),
+                                        )],
+                                        # 1: output from a0 (x10)
+                                        [1, join(
+                                            at(hhead.end + 10*4, "."),
+                                            at(hhead.F, s(INCPC.f)),
+                                            at(LF, s(0)),
+                                            at(LN, s(1)),
+                                            g(-2),
+                                        )],
+                                        # 2: exit
+                                        [1, join(
+                                            at(LF, s(-1)),
+                                            at(LN, s(0)),
+                                            g(-2),
+                                        )],
+                                    ),
+                                )],
+                                # 1: ebreak
+                                [1, join(
+                                    "#",
+                                    at(LF, s(0)),
+                                    at(hhead.F, s(INCPC.f)),
+                                    at(LN, s(1)),
+                                    g(-2),
+                                )],
+                            ),
+                        )],
+                        # 8: fence (noop)
+                        [8, join(
+                            at(hhead.F, s(INCPC.f)),
+                            at(LF, s(0)),
+                            at(LN, s(1)),
+                        )],
+                    ),
+                )],
+            ),
+            g(+2),
+        )),
+    )
+    import compressbf; code = compressbf.compress(","+iobreak_code)[1:]
+    class KeepCharsTable:
+        def __init__(self, keepchars): self.keepchars = keepchars
+        def __getitem__(self, ordinal): return ordinal if chr(ordinal) in self.keepchars else None
+    code = code.translate(KeepCharsTable("+-<>,.[]"))
+    print("A rudimentary RISCV32I interpreter by GeeTransit".center(80).rstrip())
+    print("Only 0=input 1=output 2=exit syscalls supported".center(80).rstrip())
+    print("Place RISCV instructions starting at 256 cells to the right".center(80).rstrip())
+    for i in range(len(code))[::80]:
+        print(code[i:i+80])
+
+elif "--convert-hex-to-bf" in sys.argv:
+    if "--offset" in sys.argv:
+        i = sys.argv.index("--offset")
+        sys.argv.pop(i)
+        amount = int(sys.argv.pop(i))
+    else:
+        amount = 0
+    import sys
+    inp = sys.stdin.read()
+    code = at(amount, init([
+        value
+        for part in inp.split()
+        if part.strip()
+        for value in int(part.strip(), 16).to_bytes(5, "little", signed=True)[:4]
+    ]))
+    import compressbf; code = compressbf.compress(","+code)[1:]
+    class KeepCharsTable:
+        def __init__(self, keepchars): self.keepchars = keepchars
+        def __getitem__(self, ordinal): return ordinal if chr(ordinal) in self.keepchars else None
+    code = code.translate(KeepCharsTable("+-<>,.[]"))
+    for i in range(len(code))[::80]:
+        print(code[i:i+80])
+
+elif "--output-fake-linux" in sys.argv:
+    raise NotImplementedError
+    # TODO: complete this
+    # r'''
+    original_functions = functions.copy()
+    try:
+        def _memmovright_call(callback, register=None, address=None, write=None, read=None):
+            h = DECODE_FORMAT(); md = h.mem.data
+            return join(
+                move(register, 4*[h.mem.i[0], md.i[0]])
+                if register is not None
+                else join(
+                    zipmove(address, md.i),
+                    at(h.mem.i[1], s(-2)),
+                    loop(h.mem.i[1], at(h.mem.i[1], c(-2)) + at(h.mem.i[0], c(1))),
+                    at(h.mem.i[0], c(1)),
+                ),
+                join(
+                    zipmove(write, md.rwp.data),
+                    at(md.rwp._t, s(1)),
+                ) if write is not None else "",
+                join(
+                    at(md.rwp.data, s(0)),
+                    at(md.rwp._t, s(0)),
+                ) if read is not None else "",
+                at(md.f, s(MEMMOVRIGHT.f)),
+                at(md.n, s(1 if register is not None else 0)),
+                at(h.mem_next, s(callback)),
+                g(-h.F + md.f),
+            )
+        def _call(function, n=None):
+            h = DECODE_FORMAT(); md = h.mem.data
+            return join(
+                at(h.F, s(function)),
+                at(h.N, n) if n is not None else "",
+            )
+        # def patch_function(func=None, *, name=None):
+            # if func is None or isinstance(func, str):
+                # if isinstance(func, str): name = func
+                # return lambda func, *, name=name: patch_function(func, name=name)
+            # for i, function in enumerate(functions):
+                # if getattr(function, "name", getattr(function, "__name__")):
+                    # functions[i] = func
+                    # func.f = function.f
+                    # return
+            # raise LookupError(f'cannot find function named {name}')
+        old_on_fence = ON_FENCE
+        def ON_MAINLOOP(): return ""
+        def ON_FENCE(): h = DECODE_FORMAT(); return at(h.F, s(INCPC.f)) + at(h.N, s(0))
+        def ON_SYSTEM():
+            h = DECODE_FORMAT(); md = h.mem.data
+            return join(
+                at(h.F, s(0)),
+                move(h.x2, h.F),
+                # collect other fields into F=2
+                ifnonzero(h.imm[0], at(h.xd, s(1))),
+                ifnonzero(h.xd, at(h.x1, s(1))),
+                ifnonzero(h.x1, at(h.funct_flag, s(1))),
+                ifnonzero(h.funct_flag, at(h.F, s(2))),
+                switch(on=h.F)(
+                    default,
+                    [0, join(  # ecall
+                        at(h.F, s(0)),
+                        # get x17
+                        _memmovright_call(
+                            register=h.x1,
+                            callback=_ECALL_1.f,
+                        ),
+                        g(-2),
+                    )],
+                    [1, join(  # ebreak
+                        at(h.F, "#"),
+                        at(h.F, s(INCPC.f)),
+                        g(-2),
+                    )],
+                ),
+                g(+2),
+            )
+        @mark_function
+        def _ECALL_1():
+            h = DECODE_FORMAT(); md = h.mem.data
+            return join(
+                # md.rwp.data has syscall number
+                # collect higher bytes into [0]=0
+                ifnonzero(md.rwp.data[3], at(md.rwp.data[2], s(1))),
+                ifnonzero(md.rwp.data[2], at(md.rwp.data[1], s(1))),
+                ifnonzero(md.rwp.data[1], at(md.rwp.data[0], s(0))),
+                move(md.rwp.data[0], h.F),
+                switch(on=h.F)(
+                    join(
+                        # invalid syscall error (set 10 to -1 for now)
+                        at(h.imm[0], s(-1)),
+                        at(h.x1, s(10)),
+                        _memmovright_call(
+                            register=h.x1,
+                            callback=_ECALL_1.f,
+                            write=h.imm,
+                        ),
+                        g(-2),
+                    ),
+                    [63, join(
+                        # 63: read(10.fd, 11.*buf, 12.nbytes)
+                        at(h.x1, s(12)),
+                        _memmovright_call(
+                            register=h.x1,
+                            callback=_SYS_READ_1.f,
+                            read=True,
+                        ),
+                        g(-2),
+                    )],
+                    # [64, join(
+                        # 64: write(10.fd, 11.*buf, 12.nbytes)
+                        # copy nbytes into rs2
+                        # copy buf into rd
+                        # while rs2
+                            # rs2 -= 1
+                            # fetch [rd]
+                            # output md.rwp.data[0]
+                            # rd += 1
+                        # at(h.F, s(0)),
+                    # )],
+                    [93, join(
+                        # 93: exit(10.code)
+                        # ignore exit code
+                        at(h.F, s(ERROR.f)),
+                        at(h.N, s(6)),
+                        g(-2),
+                    )],
+                ),
+                g(+2),
+            )
+        @mark_function
+        def _SYS_READ_1():
+           h = DECODE_FORMAT(); md = h.mem.data; return join(
+                zipmove(md.rwp.data, h.rs2),
+                at(h.x1, s(12)),
+                _memmovright_call(
+                    register=h.x1,
+                    callback=_SYS_READ_2.f,
+                    read=True,
+                ),
+                g(-2),
+            )
+        @mark_function
+        def _SYS_READ_2():
+            h = DECODE_FORMAT(); md = h.mem.data; return join(
+                zipmove(md.rwp.data, h.rsd),
+                _call(_SYS_READ_3).
+                g(-2),
+            )
+        @mark_function
+        def _SYS_READ_3():
+            # while rs2
+                # rs2 -= 1
+                # input md.rwp.data[0]
+                # write 1 byte
+                # rd += 1
+            at(h.F, s()),
+        code = MAINLOOP()
+        import compressbf; code = compressbf.compress(","+code)[1:]
+        class KeepCharsTable:
+            def __init__(self, keepchars):
+                self.keepchars = keepchars
+            def __getitem__(self, ordinal):
+                return ordinal if chr(ordinal) in self.keepchars else None
+        code = code.translate(KeepCharsTable("+-<>,.[]"))
+        print("A rudimentary RISCV32I interpreter by GeeTransit".center(80).rstrip())
+        print("Only 63=read 64=write 93=exit syscalls supported".center(80).rstrip())
+        print("Place RISCV instructions starting at 192 cells to the right".center(80).rstrip())
+        for i in range(len(code))[::80]:
+            print(code[i:i+80])
+    finally:
+        functions = original_functions
+    # '''
+    # format: we take up 64 bytes at the start to align nicely with the rest
+    # of the head. however, we only use the last 4 bytes as state (landing)
+    L = 62; LN = 63
+    LZ = 64
+    L4 = shift(range(4), 60)
+    hhead = shift(DECODE_FORMAT(), LZ)
+    r'''
+    return join(
+        at(LN, c(1)),
+        loopuntil(-1, L, join(
+            switch(on=L)(
+                join(
+                    g(-2),
+                ),
+                # 0: run mainloop until error
+                [0, join(
+                    at(L, s(0)),
+                    move(LN, L),
+                    at(LZ, code),
+                    at(hhead.F, s(0)),
+                    move(hhead.N, LN),
+                    g(-2),
+                )],
+                # 1: check error type
+                [1, join(
+                    at(L, s(0)),
+                    move(LN, L),
+                    switch(on=L)(
+                        join(
+                            # unknown??
+                            at(L, s(-1)),
+                            g(-2),
+                        )
+                        # 7: ecall, ebreak
+                        [7, join(
+                            # switch on rs2
+                            at(L, s(0)),
+                            move(LN, L),
+                            switch(on=L)(
+                                join(
+                                    # unknown :(
+                                ),
+                                # 0: ecall
+                                [0, join(
+                                    # switch on the a7 (x17) register
+                                    at(L, s(0)),
+                                    move(x17, L),
+                                    switch(on=L)(
+                                        join(
+                                            # unknown :(
+                                        ),
+                                        # 63: read(10.fd, 11.*buf, 12.nbytes)
+                                        [63, join(
+                                            # copy nbytes to state using state-4
+                                            zipmove(shift(range(4), len(hhead) + 12*4), shift(L4, -4)),
+                                            zipmove(shift(L4, -4), zip(range(4), shift(len(hhead) + 12*4), L4)),
+                                            # set L -1, LN 5
+                                            # call LESSTHAN rs2=1
+                                            # move rs2[0] to L
+                                            # switch L
+                                            #   0: MEMMOVRIGHT fetch the memory
+                                            #      go to lowest byte, output
+                                            #      clear and go back
+                                            # ahhhh
+                                            # if any of the upper bytes are nonzero, make the lower one 2
+                                            ifnonzero(L4[3], at(L4[2], s(2))),
+                                            ifnonzero(L4[2], at(L4[1], s(2))),
+                                            ifnonzero(L4[1], at(L4[0], s(2))),
+                                            move(L4[0], L),
+                                            switch(on=L)(
+                                                join(
+                                                    # nonzero, call some
+                                            at(L, s(-1)),
+                                            move(len(hhead) + 10*4, LN),
+                                            g(-2),
+                                        )],
+                                        # 64: write(10.fd, 11.*buf, 12.nbytes)
+                                        [64, join(
+                                            # we can't really do anything with the exit code lol
+                                            at(L, s(-1)),
+                                            move(len(hhead) + 10*4, LN),
+                                            g(-2),
+                                        )],
+                                        # 93: exit(10.code)
+                                        [93, join(
+                                            # we can't really do anything with the exit code lol
+                                            at(L, s(-1)),
+                                            move(len(hhead) + 10*4, LN),
+                                            g(-2),
+                                        )],
+                                    ),
+                                )],
+                                # 1: ebreak
+                                [1, join(
+                                )],
+                            ),
+                        )],
+                        # 8: fence (noop)
+                        [8, join(
+                        )],
+                    ),
+                )],
+            ),
+            g(+2),
+        ),
+    )
+    '''
+
+
+r'''
+https://chipyard.readthedocs.io/en/stable/Software/Baremetal.html
+
+4, 38, 42 opcodes unused (maybe repurpose for single byte i/o)
+or maybe switch on the length and only do it for length 1 reads/writes
+
+misa hardcoded to 010...I...
+mvendorid 0
+marchid 0
+mimpid 0
+mhartid 0
+mstatus 0?
+mstatush 0?
+
+f.0011000 2.00010 1.00000 3.000 d.00000 1110011 mret
+f.0001000 2.00101 1.00000 3.000 d.00000 1110011 wfi
+
+>[>[>+>]]<[<]
+_ab__
+_a___
+__b__
+
+255 special char
+128 select device
+
+0 text
+1 graphic
+2 keyboard
+3 os
+4 filesystem
+
+default device is 0
+input
+
+if char == 255:
+	wait for next char
+	if char == 255:
+		input char
+	elif char >= 128:
+		select device char - 128
+		error if invalid device?
+'''
