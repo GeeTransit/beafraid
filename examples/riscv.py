@@ -56,9 +56,6 @@ def join(*parts):
             parts = parts[0]
     return "\n".join(parts)
 
-movea = move
-loopwhilenot = loopuntil
-
 
 class Icp437:
     # Differences from Code page 437: nul is space, space is U+2017, del is
@@ -614,7 +611,7 @@ def pack_bits(target, origins):  # Unused now since binary operations also pack 
         )),
         g(-origins[0] + origins[-2]),
         at(origins[0], c(1)),
-        movea(origins[1], target),
+        move(origins[1], target),
     )
 # print(pack_bits(0, range(1,10)))
 
@@ -769,11 +766,11 @@ class InterleavedInt(Struct):
         # -> >>>> >>>> >>>> >>> +[-<< +[->-<]>[-<+>]<< <+]
         return at(self._a,
             c(-1) + g(-self._a + self._t4[3])
-            + loopwhilenot(-1,
+            + loopuntil(-1,
                 at(-self._t4[3] + self.num2[3],
                     c(1)
                     + loopdown(at(-self.num2[3] + self._t3[3], c(-1)))
-                    + movea(-self.num2[3] + self._t3[3], 0)
+                    + move(-self.num2[3] + self._t3[3], 0)
                 )
                 + g(-self._t4[3] + self._t4[2])
             )
@@ -792,7 +789,7 @@ class InterleavedInt(Struct):
         assert self._t3[0] - self.num2[0] == self._t4[0] - self._t3[0]
         return at(self._a,
             c(-1) + g(-self._a + self._t4[3])
-            + loopwhilenot(-1,
+            + loopuntil(-1,
                 at(-self._t4[3] + self.num1[3],
                     loopdown(
                         at(-self.num1[3] + self._t3[3], c(1))
@@ -841,7 +838,7 @@ class InterleavedInt(Struct):
         assert self._t3[0] - self.num2[0] == self._t4[0] - self._t3[0]
         return at(self._a,
             c(-1) + g(-self._a + self._t4[3])
-            + loopwhilenot(-1,
+            + loopuntil(-1,
                 at(-self._t4[3] + self.num1[3],
                     # TODO: make single byte comparison into separate function
                     # inspiration from
@@ -866,7 +863,7 @@ class InterleavedInt(Struct):
                         loop(
                             s(0)
                             + at(-self.num2[3] + self._t4[2],
-                                loopwhilenot(-1,
+                                loopuntil(-1,
                                     at(-self._t4[2] + self.num2[2], s(0))
                                     + at(-self._t4[2] + self.num1[2], s(0))
                                     + g(-self._t4[2] + self._t4[1])
@@ -881,7 +878,7 @@ class InterleavedInt(Struct):
                         loop(
                             c(-1)
                             + at(-self._t3[3] + self._t4[2],
-                                loopwhilenot(-1,
+                                loopuntil(-1,
                                     at(-self._t4[2] + self.num2[2], s(0))
                                     + at(-self._t4[2] + self.num1[2], s(0))
                                     + g(-self._t4[2] + self._t4[1])
@@ -942,7 +939,7 @@ class PairedBits(Struct):
             + self._unpack2()
             + at(self.bits1[0], c(-1))
             + g(self.bits1[8])
-            + loopwhilenot(-1,
+            + loopuntil(-1,
                 move(-self.bits1[8] + self.bits2[8])
                 + bit_func(0, -self.bits1[0] + self.bits2[0])
                 + at(-self.bits1[8] + self.bits1[9], loopdown(at(-self.bits1[9] + self.bits1[8], c(2))))
@@ -950,7 +947,7 @@ class PairedBits(Struct):
             )
             + c(1)
             + g(-self.bits1[0])
-            + movea(self.bits1[1], self.byte1)
+            + move(self.bits1[1], self.byte1)
         )
 
 def compare1equal2(num1, num2):
