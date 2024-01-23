@@ -309,7 +309,7 @@ def compress(code: str) -> str:
     # Remove loops that follow other loops
     for _ in range(20):  # Don't let it get out of control
         old_len = len(code)
-        code = remove_impossible_loops(code)
+        code = remove_impossible_loops(code, initial_loop=KEEP)
         code = simplify_constant_operations(code)
         code = remove_before_clears(code)
         code = reduce_doubled_loops(code)
