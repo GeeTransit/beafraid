@@ -202,6 +202,24 @@ xy-_aAbBcCdDeEfFgGhH__
 '''
 
 
+# Special constants for N when the mainloop exits
+E_SYSTEM = 0x07
+E_FENCE = 0x08
+# The constants below are subject to change (might be combined in the future)
+E_INVALID_OPCODE_1 = 0x09
+E_INVALID_OPCODE_2 = 0x0A
+E_INVALID_OPCODE_3 = 0x0B
+E_INVALID_OPCODE_4 = 0x0C
+E_INVALID_OPCODE_5 = 0x0D
+E_DECODE_MISSING_ERRNO = 0x0E
+E_INVALID_FUNCT3_LOAD = 0x14
+E_INVALID_FUNCT3_STORE = 0x15
+E_INVALID_FUNCT7_MATH_R = 0x16
+E_INVALID_FUNCT7_MATH_I = 0x17
+E_INVALID_FUNCT3_MATH = 0x18  # Used twice
+E_INVALID_FUNCT3_BRANCH = 0x19
+
+
 _next_function_index = 0
 functions = []
 def mark_function(func):
@@ -1277,7 +1295,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             # default:
             join(
                 at(F, s(ERROR.f)),  # F = ERROR
-                at(N, s(9)),
+                at(N, s(E_INVALID_OPCODE_1)),
                 at(B, s(0)),
                 g(-2),  # land __FN
             ),
@@ -1291,7 +1309,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                     # default:
                     join(
                         at(F, s(ERROR.f)),  # F = ERROR
-                        at(N, s(10)),
+                        at(N, s(E_INVALID_OPCODE_2)),
                         at(B, s(0)),
                         g(-2),  # land __FN
                     ),
@@ -1305,7 +1323,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                             # default:
                             join(
                                 at(F, s(ERROR.f)),  # F = ERROR
-                                at(N, s(11)),
+                                at(N, s(E_INVALID_OPCODE_3)),
                                 g(-2),  # land __FN
                             ),
                             # case 0:
@@ -1374,7 +1392,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                             # default:
                             join(
                                 at(F, s(ERROR.f)),  # F = ERROR
-                                at(N, s(12)),
+                                at(N, s(E_INVALID_OPCODE_4)),
                                 g(-2),  # land __FN
                             ),
                             # case 1:
@@ -1413,7 +1431,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                             # default:
                             join(
                                 at(F, s(ERROR.f)),  # F = ERROR
-                                at(N, s(13)),
+                                at(N, s(E_INVALID_OPCODE_5)),
                                 g(-2),  # land __FN
                             ),
                             # case 0:
@@ -1678,7 +1696,7 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
         # default:
         join(
             # Keep N propagated
-            at(F, s(14)),
+            at(F, s(E_DECODE_MISSING_ERRNO)),
             ifnonzero(N, at(F, s(0)) + move(N, F)),
             move(F, N),
             at(F, s(ERROR.f)),  # F = ERROR
@@ -1723,7 +1741,7 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
             move(B[1], imm[0]),
 
             # S=funct3+((funct7&0x20)<<3) 1=rs1 2=rs2 d=rd
-            at(F, s(ERROR.f)), at(F-1, s(22)), ifnonzero(N, at(F, s(0)) + move(N, F) + at(F-1, s(0))), move(F-1, N),  # N => F
+            at(F, s(ERROR.f)), at(F-1, s(E_INVALID_FUNCT7_MATH_R)), ifnonzero(N, at(F, s(0)) + move(N, F) + at(F-1, s(0))), move(F-1, N),  # N => F
             g(-2),  # land __FN
         ),
 
@@ -1787,7 +1805,7 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
             )),
 
             # S=funct3+((funct7&0x20)<<3) 1=rs1 d=rd imm.=imm(sign extended iff not slli/srli/srai)
-            at(F, s(ERROR.f)), at(F-1, s(23)), ifnonzero(N, at(F, s(0)) + move(N, F) + at(F-1, s(0))), move(F-1, N),  # N => F
+            at(F, s(ERROR.f)), at(F-1, s(E_INVALID_FUNCT7_MATH_I)), ifnonzero(N, at(F, s(0)) + move(N, F) + at(F-1, s(0))), move(F-1, N),  # N => F
             g(-2),  # land __FN
         ),
 
@@ -2009,8 +2027,8 @@ _SLTU_1 = mark_function("_SLTU_1")
 _SLL_1 = mark_function("_SLL_1")
 _SRL_1 = mark_function("_SRL_1")
 
-def ON_FENCE(): h = DECODE_FORMAT(); return at(h.F, s(ERROR.f)) + at(h.N, s(8))
-def ON_SYSTEM(): h = DECODE_FORMAT(); return at(h.F, s(ERROR.f)) + at(h.N, s(7))
+def ON_FENCE(): h = DECODE_FORMAT(); return at(h.F, s(ERROR.f)) + at(h.N, s(E_FENCE))
+def ON_SYSTEM(): h = DECODE_FORMAT(); return at(h.F, s(ERROR.f)) + at(h.N, s(E_SYSTEM))
 
 @whenthe3
 def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
@@ -2032,7 +2050,7 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
         # default:
         join(
             # F = ERROR
-            at(F, s(-1)),
+            at(F, s(ERROR.f)),
             # break out of main loop?
             # maybe later have a trap
             g(-2),
@@ -2091,7 +2109,7 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             switch(on=h.F)(
                 join(
                     at(h.F, s(ERROR.f)),
-                    at(h.N, s(24)),
+                    at(h.N, s(E_INVALID_FUNCT3_MATH)),
                     g(-2),
                 ),
                 join(
@@ -2336,7 +2354,7 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             switch(on=h.F)(  # switch on funct3
                 join(
                     at(h.F, s(ERROR.f)),
-                    at(h.N, s(24)),
+                    at(h.N, s(E_INVALID_FUNCT3_MATH)),
                     g(-2),
                 ),
                 join(
@@ -2477,7 +2495,7 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             switch(on=h.F)(  # TODO: switch to [-[-[- trick
                 join(
                     at(h.F, s(ERROR.f)),
-                    at(h.N, s(25)),
+                    at(h.N, s(E_INVALID_FUNCT3_BRANCH)),
                     g(-2),
                 ),
                 join(  # beq
@@ -2655,7 +2673,7 @@ def _LOAD_3():
         switch(on=h.F)(  # switch F:
             join(  # default:
                 at(h.F, s(ERROR.f)),  # F = ERROR
-                at(h.N, s(20)),
+                at(h.N, s(E_INVALID_FUNCT3_LOAD)),
                 g(-2) , # land __FN
             ),
 
@@ -2817,7 +2835,7 @@ def _STORE_3():
         switch(on=h.F)(
             join(
                 at(h.F, s(ERROR.f)),
-                at(h.N, s(21)),
+                at(h.N, s(E_INVALID_FUNCT3_STORE)),
                 g(-2),
             ),
             join(
@@ -4197,7 +4215,7 @@ def test_fence_random(HEAD, REGS, inmem, outmem, **_):
     newpc = FB(outmem[h.pc[0]:][:4])
     assert oldpc + 4 == newpc
     assert outmem[h.F] == ERROR.f % 256
-    assert outmem[h.N] == 8 % 256
+    assert outmem[h.N] == E_FENCE % 256
     assert FB(outmem[h.imm[0]:][:4]) == FB(outmem[HEAD+REGS:][8:][:4])
     assert outmem[h.xd] == outmem[HEAD+REGS:][12]
     assert outmem[h.x1] == outmem[HEAD+REGS:][13]
@@ -4374,7 +4392,7 @@ def test_system_random(HEAD, REGS, inmem, outmem, **_):
     newpc = FB(outmem[h.pc[0]:][:4])
     assert oldpc + 4 == newpc
     assert outmem[h.F] == ERROR.f % 256
-    assert outmem[h.N] == 7 % 256
+    assert outmem[h.N] == E_SYSTEM % 256
     assert outmem[h.x2] == outmem[HEAD+REGS:][8]
 
 if not _first_test:
@@ -4406,10 +4424,10 @@ elif "--output-simple-iobreak" in sys.argv:
     hhead = shift(DECODE_FORMAT(), LZ)
     iobreak_code = join(
         at(LN, c(1)),
-        loopuntil(-1, LF, join(
+        loopuntil(ERROR.f, LF, join(
             switch(on=LF)(
                 join(
-                    at(LF, s(-1)),
+                    at(LF, s(ERROR.f)),
                     g(-2),
                 ),
                 # 0: run mainloop until error
@@ -4428,18 +4446,18 @@ elif "--output-simple-iobreak" in sys.argv:
                     switch(on=LF)(
                         join(
                             # unknown??
-                            at(LF, s(-1)),
+                            at(LF, s(ERROR.f)),
                             g(-2),
                         ),
                         # 7: ecall, ebreak
-                        [7, join(
+                        [E_SYSTEM, join(
                             # switch on rs2
                             at(LF, s(0)),
                             move(LN, LF),
                             switch(on=LF)(
                                 join(
                                     # unknown :(
-                                    at(LF, s(-1)),
+                                    at(LF, s(ERROR.f)),
                                     g(-2),
                                 ),
                                 # 0: ecall
@@ -4450,7 +4468,7 @@ elif "--output-simple-iobreak" in sys.argv:
                                     switch(on=LF)(
                                         join(
                                             # unknown :(
-                                            at(LF, s(-1)),
+                                            at(LF, s(ERROR.f)),
                                             g(-2),
                                         ),
                                         # 0: input into a0 (x10)
@@ -4474,7 +4492,7 @@ elif "--output-simple-iobreak" in sys.argv:
                                         )],
                                         # 2: exit
                                         [1, join(
-                                            at(LF, s(-1)),
+                                            at(LF, s(ERROR.f)),
                                             at(LN, s(0)),
                                             g(-2),
                                         )],
@@ -4491,7 +4509,7 @@ elif "--output-simple-iobreak" in sys.argv:
                             ),
                         )],
                         # 8: fence (noop)
-                        [8, join(
+                        [E_FENCE, join(
                             at(hhead.F, s(INCPC.f)),
                             at(LF, s(0)),
                             at(LN, s(1)),
