@@ -284,7 +284,7 @@ def MEMMOVRIGHT():  # case MEMMOVRIGHT:
                 g(-2),  # land __fn
             ),
         ),
-        g(2),
+        g(+2),
         g(-h.F + md.f)  # reset to __fn
     )
 
@@ -311,7 +311,7 @@ def MEMMOVLEFT():  # case MEMMOVLEFT:
                 g(-md.f + h.F - 2),  # land __FN
             ),
         ),
-        g(2),
+        g(+2),
         g(-h.F + md.f)  # reset to __fn
     )
 
@@ -353,7 +353,7 @@ def MAINLOOP():
             at(F, s(ERROR.f)) + g(-2),
             *[[func.f, func() + g(-2)] for func in functions if not hasattr(func, "name")],
         ),
-        g(2),
+        g(+2),
     ))
 
 
@@ -1260,8 +1260,6 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
     assert size(xd) == 1
     assert size(imm) == 4
     B = BB[1:]
-    LAND = lambda f, on=None: g(-2) if on is None else g(-(f) + (on-2))
-    LAUNCH = g(2)
     INFO_BITS = lambda *bits: "".join(move(B[i], 2*[B[i-1]]) for i in reversed(range(8)) if i not in bits)
     return join(
         # unpack first byte to determine opcode / fmt (RISBUJ)
@@ -1281,7 +1279,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                 at(F, s(ERROR.f)),  # F = ERROR
                 at(N, s(9)),
                 at(B, s(0)),
-                LAND(F),  # land __FN
+                g(-2),  # land __FN
             ),
             # case 3:  # all RV32I instructions have 11 as their lowest two bits
             [3, join(
@@ -1295,7 +1293,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                         at(F, s(ERROR.f)),  # F = ERROR
                         at(N, s(10)),
                         at(B, s(0)),
-                        LAND(F),  # land __FN
+                        g(-2),  # land __FN
                     ),
 
                     # case 0:  # most instructions
@@ -1308,7 +1306,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                             join(
                                 at(F, s(ERROR.f)),  # F = ERROR
                                 at(N, s(11)),
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             ),
                             # case 0:
                             join(
@@ -1316,7 +1314,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 # lb (0), lh (1), lw (2), lbu (4), lhu (5)
                                 at(F, s(1)),  # F = 1
                                 at(N, s(1)),  # N = 1
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                                 # Note that N starts at 1 since we are using N=0 as an error in the next step
                             ),
                             # case 1:
@@ -1326,7 +1324,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 at(F, s(1)),  # F = 1
                                 at(N, s(2)),  # N = 2
                                 at(x2, s(1)),  # 2 = 1
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             ),
                             # case 2:
                             join(
@@ -1334,7 +1332,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 # sb (0), sh (1), sw (2)
                                 at(F, s(2)),  # F = 2
                                 at(N, s(3)),  # N = 3
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             ),
                             # case 3:
                             join(
@@ -1343,7 +1341,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 at(F, s(0)),  # F = 0
                                 at(N, s(4)),  # N = 4
                                 at(imm[0], s(1)),
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             ),
                             # case 6:
                             [6, join(
@@ -1351,7 +1349,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 # beq (0), bne (1), blt (4), bge (5), bltu (6), bgeu (7)
                                 at(F, s(3)),  # F = 3
                                 at(N, s(5)),  # N = 5
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             )],
                             # case 7:
                             join(
@@ -1363,7 +1361,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 # aid in decoding the instruction.
                                 at(F, s(0)),  # F = 0
                                 at(N, s(6)),  # N = 6
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             ),
                         ),
                     ),
@@ -1377,7 +1375,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                             join(
                                 at(F, s(ERROR.f)),  # F = ERROR
                                 at(N, s(12)),
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             ),
                             # case 1:
                             [1, join(
@@ -1385,7 +1383,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 # auipc
                                 at(F, s(4)),  # F = 4
                                 at(N, s(7)),  # N = 7
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             )],
                             # case 3:
                             [3, join(
@@ -1393,7 +1391,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 # lui
                                 at(F, s(4)),  # F = 4
                                 at(N, s(8)),  # N = 8
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             )],
                             # case 6:
                             [6, join(
@@ -1401,7 +1399,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 # jalr
                                 at(F, s(1)),  # F = 1
                                 at(N, s(9)),  # N = 9
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             )],
                         ),
                     ),
@@ -1416,7 +1414,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                             join(
                                 at(F, s(ERROR.f)),  # F = ERROR
                                 at(N, s(13)),
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             ),
                             # case 0:
                             join(
@@ -1424,7 +1422,7 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 # fence
                                 at(F, s(1)),  # F = 1
                                 at(N, s(11)),  # N = 11
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             ),
                             # case 6:
                             [6, join(
@@ -1432,14 +1430,14 @@ def DECODE_OPCODE_TYPE(BB, F, N, xyzw, S, x1, x2, xd, imm):
                                 # jal
                                 at(F, s(5)),  # F = 5
                                 at(N, s(10)),  # N = 10
-                                LAND(F),  # land __FN
+                                g(-2),  # land __FN
                             )],
                         ),
                     )],
                 ),
             )],
         ),
-        LAUNCH,
+        g(+2),
     )
 
 def whenthe2(func):
@@ -1673,8 +1671,6 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
     assert size(xd) == 1
     assert size(imm) == 4
     B = BB[1:]
-    LAND = lambda f, on=None: g(-2) if on is None else g(-(f) + (on-2))
-    LAUNCH = g(2)
     INFO_BITS = lambda *bits: "".join(move(B[i], 2*[B[i-1]]) for i in reversed(range(8)) if i not in bits)
     # extract parts from instruction according to format
     # 012345 == RISBUJ
@@ -1687,7 +1683,7 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
             move(F, N),
             at(F, s(ERROR.f)),  # F = ERROR
             at(B, s(0)),
-            LAND(F),  # land __FN
+            g(-2),  # land __FN
         ),
         # case 0:  # R type
         join(
@@ -1728,7 +1724,7 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
 
             # S=funct3+((funct7&0x20)<<3) 1=rs1 2=rs2 d=rd
             at(F, s(ERROR.f)), at(F-1, s(22)), ifnonzero(N, at(F, s(0)) + move(N, F) + at(F-1, s(0))), move(F-1, N),  # N => F
-            LAND(F),  # land __FN
+            g(-2),  # land __FN
         ),
 
         # case 1:  # I type
@@ -1792,7 +1788,7 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
 
             # S=funct3+((funct7&0x20)<<3) 1=rs1 d=rd imm.=imm(sign extended iff not slli/srli/srai)
             at(F, s(ERROR.f)), at(F-1, s(23)), ifnonzero(N, at(F, s(0)) + move(N, F) + at(F-1, s(0))), move(F-1, N),  # N => F
-            LAND(F),  # land __FN
+            g(-2),  # land __FN
         ),
 
         # case 2:  # S type
@@ -1833,7 +1829,7 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
 
             # S=funct3 1=rs1 2=rs2 imm.=imm(sign extended)
             at(F, s(0)), move(N, F),  # N => F
-            LAND(F),  # land __FN
+            g(-2),  # land __FN
         ),
 
         # case 3:  # B type
@@ -1874,7 +1870,7 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
 
             # S=funct3 1=rs1 2=rs2 imm.=imm(sign extended)
             at(F, s(0)), move(N, F),  # N => F
-            LAND(F),  # land __FN
+            g(-2),  # land __FN
         ),
 
         # case 4:  # U type
@@ -1894,7 +1890,7 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
 
             # d=rd imm.=imm
             at(F, s(0)), move(N, F),  # N => F
-            LAND(F),  # land __FN
+            g(-2),  # land __FN
         ),
 
         # case 5:  # J type
@@ -1933,9 +1929,9 @@ def DECODE_INSTR_PARTS(BB, F, N, xyzw, S, x1, x2, xd, imm):
 
             # d=rd imm.=imm(sign extended)
             at(F, s(0)), move(N, F),  # N => F
-            LAND(F),  # land __FN
+            g(-2),  # land __FN
         ),
-    ) + LAUNCH
+    ) + g(+2)
 
 # MEMMOVRIGHT = 1
 # _LOAD_1 = 2
@@ -2028,8 +2024,6 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
     assert size(xd) == 1
     assert size(imm) == 4
     B = BB[1:]
-    LAND = lambda f, on=None: g(-2) if on is None else g(-(f) + (on-2))
-    LAUNCH = g(2)
     INFO_BITS = lambda *bits: "".join(move(B[i], 2*[B[i-1]]) for i in reversed(range(8)) if i not in bits)
     h = DECODE_FORMAT()
     md = h.mem.data
@@ -2041,7 +2035,7 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             at(F, s(-1)),
             # break out of main loop?
             # maybe later have a trap
-            LAND(F),
+            g(-2),
         ),
 # TODO: minimize head size
 #                                               46   51      59
@@ -2080,7 +2074,7 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             at(md.f, s(MEMMOVRIGHT.f)),  # f = MEMMOVRIGHT
             at(md.n, s(1)),  # n = 1
             at(h.mem_next, s(_LOAD_1.f)),  # M = _LOAD_1
-            LAND(F, on=md.f),  # land __fn
+            g(-F + md.f - 2),  # land __fn
         )],
 
         # *0*r'''
@@ -2327,7 +2321,7 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             at(md.f, s(MEMMOVRIGHT.f)),  # f = MEMMOVRIGHT
             at(md.n, s(1)),  # n = 1
             at(h.mem_next, s(_STORE_1.f)),  # M = _STORE_1
-            LAND(F, on=md.f),  # land __fn
+            g(-F + md.f - 2),  # land __fn
         )],
 
         # *0*r'''
@@ -2624,7 +2618,7 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             ON_FENCE(),
             g(-2),
         )],
-    ) + LAUNCH
+    ) + g(+2)
 
 
 @mark_function
@@ -2745,7 +2739,7 @@ def _LOAD_3():
                 g(-2),  # land __FN
             ),
         ),
-        g(2),
+        g(+2),
 
         switch(on=h.F)(  # switch F:
             join(  # default:
@@ -2762,7 +2756,7 @@ def _LOAD_3():
                 g(-h.F + md.f - 2),  # land __fn
             ),
         ),
-        g(2),
+        g(+2),
     )
 
 @mark_function
@@ -2833,7 +2827,7 @@ def _STORE_3():
                 g(-h.F + md.f - 2)
             ),
         ),
-        g(2),
+        g(+2),
     )
 
 @mark_function
