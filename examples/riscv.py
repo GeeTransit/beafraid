@@ -19,7 +19,7 @@ def _SKIPTEST_(name):
     if _first_test:
         _first_test = False
         print("--- START TESTS")
-    # return False
+    return False
     return name in '''
         whenthe whenthe2 whenthe3 whenthemain
         test_load_check
