@@ -5,7 +5,6 @@ from .s4op import pack_class_offsets, shift, size, start, Struct, Offset
 
 
 import sys
-# sys.stdout.reconfigure(encoding="utf-8")
 _first_test = True
 def _SKIPTEST_(name):
     if "--skip" in sys.argv:
@@ -57,77 +56,8 @@ def join(*parts):
             parts = parts[0]
     return "\n".join(parts)
 
-def switchon(delta, *cases, **kwargs):
-    cases = [g(-delta) + case for case in cases]
-    return g(delta) + switch(*cases, **kwargs)
-
-def movea(origin, target):
-    return at(origin, move(-origin + target))
-
-def copya(origin, target, temp):
-    return at(origin, copy(-origin + temp, -origin + target))
-
-def loopwhilenot(amount, code):
-    return c(-amount) + loop(c(amount) + code + c(-amount)) + c(amount)
-
-@pack_class_offsets
-class Cont(Struct):
-    """A continuation structure with a break cell and a landing zone"""
-    break_ = Offset(0)
-    land = Offset(range(2))
-
-@pack_class_offsets
-class Data(Struct):
-    """A structure with data cells"""
-    a = Offset()
-    b = Offset()
-    c = Offset()
-
-@pack_class_offsets
-class Frame(Struct):
-    """A frame structure with Cont head, a function switch, and data cells"""
-    cont = Offset(Cont())
-    func = Offset(range(2))
-    data = Offset(Data())
-
-    BREAKON = -1
-
-    def switchon(self, deltas, *cases, **kwargs):
-        # The pointer must be at some other jump point because the temporary cell
-        # is zeroed before each case.
-        if size(deltas) != 2:
-            raise ValueError("deltas must have length 2")
-        if deltas[0] + 1 != deltas[1]:
-            raise ValueError("deltas aren't adjacent")
-        cases = [
-            at(-self.cont.land[0], at(deltas[1], s(0)) + case)
-            for case in cases
-        ]
-        return at(
-            self.cont.land[0],
-            switchon(-self.cont.land[0] + deltas[0], *cases, **kwargs),
-        )
-
-    def save(self, func=None):
-        return at(self.func[0], s(func) if func is not None else "")
-
-    def push(self, func=None):
-        return g(len(self)) + self.save(func)
-
-    def pop(self, func=0):
-        return self.save(func) + g(-len(self))
-
-    def loop(self, code):
-        return at(
-            self.cont.break_,
-            loopwhilenot(self.BREAKON, at(-self.cont.break_, code)),
-        )
-
-    def break_(self):
-        return at(self.cont.break_, s(self.BREAKON)) + self.save(0)
-
-frame = Frame()
-data = frame.data
+movea = move
+loopwhilenot = loopuntil
 
 
 class Icp437:
@@ -145,8 +75,6 @@ class Icp437:
             out[i] = char
         for i, char in enumerate("⌂", start=0x7F):
             out[i] = char
-        # for i, char in enumerate("]", start=0x5D):
-            # out[i] = char
         for i, char in enumerate("ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒ", start=0x80):
             out[i] = char
         for i, char in enumerate("áíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐", start=0xA0):
@@ -374,53 +302,7 @@ def MAINLOOP():
         g(+2),
     ))
 
-
-
-
-        # case DECODE:  # rename to INCPC later
-            # pc.. => rs2.
-            # rs1.[0] += 4
-            # F = ADD
-            # N = AFTERINCPC
-            # land __FN
-
-        # case AFTERINCPC:  # rename to something better later
-            # clear x0 register (just move to where x0 is and [-] them)
-            # DECODE()
-
-        # default:
-            # ...
-
 r'''
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-                                          +[-
-                                          >+<
-                                          [-
-                                          [
-                                          f_\1
-                                          [-]>-<
-                                         <<
-                                          ]
-                                          >
-                                           [-
-                                           f=1
-                                          <<
-                                          ]
-                                           <
-                                          ]
-                                          >
-                                           [-
-                                           f=0
-                                         <<<
-                                        ++decode
-                                        >>>
-                                        <<<<
-                                          <<
-                                          ]
-                                           <
-                                        >>
-                                          +]
-<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 [0 = fetch function]
 set memory flag to decode
 memory move right
@@ -1180,40 +1062,10 @@ def DECODE_FORMAT():
 
         end = Offset(64)
 
-    class ToyRiscvHead(Struct):
-        mem = Offset(MemoryHead(-MemoryHead().data.rwp[0]))  # data is at first 4 cells
-        funct_flag = Offset(8)
-        x1 = Offset(9)
-        x2 = Offset(10)
-        xd = Offset(11)
-        imm = Offset(range(12,12+4))
-
-        BB = Offset(range(19,19+9))
-        B = Offset(BB.offset[1:])
-
-        land = Offset(range(4,4+2))
-        F = Offset(6)
-        N = Offset(7)
-
     return RiscvHead()
-    # return ToyRiscvHead()
 
 def DECODE_ARGS():
     rhead = DECODE_FORMAT()
-    POS = dict(
-        BB = range(27,27+9),
-        **dict(zip(map(str.strip, "F, N".split(",")), range(42,42+2))),
-        xyzw = range(59,59+4),
-        **dict(zip(map(str.strip, "S, x1, x2, xd".split(",")), range(44,44+4))),
-        imm = range(48,48+4),
-    )
-    POS = dict(
-        BB = range(19,19+9),
-        **dict(zip(map(str.strip, "F, N".split(",")), range(6,6+2))),
-        xyzw = range(0,0+4),
-        **dict(zip(map(str.strip, "S, x1, x2, xd".split(",")), range(8,8+4))),
-        imm = range(12,12+4),
-    )
     POS = dict(
         BB = rhead.BB,
         F = rhead.F,
