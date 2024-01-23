@@ -329,20 +329,20 @@ def test_remove_impossible_loops():
     assert remove_impossible_loops("+[a+[a+]a[a]+]+[a+]") == "+[a+[a+]a+]+[a+]"
 
 def test_remove_impossible_loops_dont_ignore_unmatched_end_brackets():
-    assert remove_impossible_loops("]", ignore_unmatched_end_brackets=False) == "]"
-    assert remove_impossible_loops("][", ignore_unmatched_end_brackets=False) == "]"
-    assert remove_impossible_loops("]a[", ignore_unmatched_end_brackets=False) == "]a"
-    assert remove_impossible_loops("]+[", ignore_unmatched_end_brackets=False) == "]+["
+    assert remove_impossible_loops("]", unmatched_end_brackets=NORMAL) == "]"
+    assert remove_impossible_loops("][", unmatched_end_brackets=NORMAL) == "]"
+    assert remove_impossible_loops("]a[", unmatched_end_brackets=NORMAL) == "]a"
+    assert remove_impossible_loops("]+[", unmatched_end_brackets=NORMAL) == "]+["
 
-    assert remove_impossible_loops("+[+]+][+]", ignore_unmatched_end_brackets=False) == "+[+]+]"
+    assert remove_impossible_loops("+[+]+][+]", unmatched_end_brackets=NORMAL) == "+[+]+]"
 
 def test_remove_impossible_loops_ignore_unmatched_end_brackets():
-    assert remove_impossible_loops("]", ignore_unmatched_end_brackets=True) == "]"
-    assert remove_impossible_loops("][", ignore_unmatched_end_brackets=True) == "]"
-    assert remove_impossible_loops("]a[", ignore_unmatched_end_brackets=True) == "]a"
-    assert remove_impossible_loops("]+[", ignore_unmatched_end_brackets=True) == "]+["
+    assert remove_impossible_loops("]", unmatched_end_brackets=KEEP) == "]"
+    assert remove_impossible_loops("][", unmatched_end_brackets=KEEP) == "]"
+    assert remove_impossible_loops("]a[", unmatched_end_brackets=KEEP) == "]a"
+    assert remove_impossible_loops("]+[", unmatched_end_brackets=KEEP) == "]+["
 
-    assert remove_impossible_loops("+[+]+][+]", ignore_unmatched_end_brackets=False) == "+[+]+][+]"
+    assert remove_impossible_loops("+[+]+][+]", unmatched_end_brackets=KEEP) == "+[+]+][+]"
 
 # - Command line
 
