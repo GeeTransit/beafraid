@@ -2937,7 +2937,10 @@ if __name__ == "__main__":
                             [E_SYSTEM, join(
                                 # switch on rs2
                                 at(LF, s(0)),
-                                move(LN, LF),
+                                ifnonzero(hhead.rs2[3], at(hhead.rs2[2], s(1))),
+                                ifnonzero(hhead.rs2[2], at(hhead.rs2[1], s(1))),
+                                ifnonzero(hhead.rs2[1], at(hhead.rs2[0], s(2))),
+                                move(hhead.rs2[0], LF),
                                 switch(on=LF)(
                                     join(
                                         # unknown :(
