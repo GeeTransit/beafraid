@@ -23,23 +23,9 @@ def join(*parts):
 r'''
 [ general design ]
 
-___ instr pc x0 x1 x2 ... x31 ___ memory
-first space is for decoding the instruction, storing rs1/rs2, extracting immediates, calculations
-second space is for potentially storing more state (bump 128 to 256 if stuff is being used)
+Layout: head[64] registers[4*32] memory[...]
 
-little endian
-no wraparound unfortunately
-todo: make all zero instruction an error
-ebreak can do the # instruction?
-ecall can do i/o depending on some register value?
-fence is a noop (no multi threading in brainfuck, all memory reads/writes are immediately visible)
-generate exception on misaligned jumps? (check lower 2 bits somehow)
-
-bitwise operations should be unpacked into interleaved bits before operations
-probably with 1 2 t s with output into 1? and 2 t being a landing with s being the operation potentially
-looping until s is not some constant at the start / end
-shifting should be done first by shifting 8 bits at a time (just move bytes over) then the individual bits
-
+Detailed layout:
                                               46   51      59
                                          _____ijkl___fnIJKLxyzw_
                                         40  44
@@ -48,6 +34,62 @@ shifting should be done first by shifting 8 bits at a time (just move bytes over
 ___-aA1_bB1_cC1_dD1_____
 xy-_aAbBcCdDeEfFgGhH__
                         abcdABCD
+
+riscv is little endian
+no memory wraparound unfortunately (accessing higher memory is incredibly slow)
+ebreak and ecall exit with E_SYSTEM
+    differentiate based on rs2 (0=ecall, 1=ebreak)
+    in --output-simple-iobreak, ecall handles i/o and breaking out of mainloop
+fences exit with E_FENCE
+    all memory reads/writes are already immediately visible
+    there are also no threads since we are "single core"
+    however, one could repurpose this to flush i/o maybe
+TODO: generate exception on misaligned jumps (check lower two bits after jumps/branches)
+
+bitwise operations are done by operating on interleaved bits and packing after
+bitwise shifts are done by first shifting 8 bits at a time (aka shifting bytes)
+    and then doing the individual bits (need to handle carry and such)
+signed comparisons simply mean flip the msb (in brainfuck, we can add 128)
+sign extension are done in two places
+    for immediates, we check the msb of the instruction
+    for loads, we compare the msbyte with 128
+
+memory accesses are done by shifting a block of memory right/left to the desired location
+    reading or writing using the space just after the block
+    and shifting back to the original location
+    note that this means the location of the pointer is temporarily restricted to the block
+    and the switch case now acts inside the block
+
+the mainloop is a giant switch case
+    0 is fetch (to make starting the interpreter simpler)
+    at the end of each case, the pointer moves left 2 spaces
+        these 2 spaces are assumed to be always zero
+    at the end of the whole switch, the pointer moves right 2 spaces
+    we guarantee 1 is increment pc (to make SYSTEM calls easier)
+    we also guarantee -1 (or 255) is the break case
+
+TODO: potentially shrink head size
+aim for 32 cells
+especially since the memory head is unused when doing other operations
+
+TODO: move landing into _t like below to shorten
+__fn_ijkl_IJKLxyzw_
+n is moved temporarily during read/writes?
+
+TODO: shift large blocks of memory by shifting left 2 and then shifting right 3
+similarly, shift left 3 and then shift right by 2 also works
+__abcdef_
+_6abcdef_
+a_5bcdef_
+ab_4cdef_
+...
+abcdef_0_
+abcdef_6_
+abcde_5_f
+abcd_4_ef
+...
+_0_abcdef
+___abcdef
 '''
 
 
@@ -60,7 +102,7 @@ E_INVALID_OPCODE_2 = 0x0A
 E_INVALID_OPCODE_3 = 0x0B
 E_INVALID_OPCODE_4 = 0x0C
 E_INVALID_OPCODE_5 = 0x0D
-E_DECODE_MISSING_ERRNO = 0x0E
+E_DECODE_MISSING_ERRNO = 0x0E  # Should never happen
 E_INVALID_FUNCT3_LOAD = 0x14
 E_INVALID_FUNCT3_STORE = 0x15
 E_INVALID_FUNCT7_MATH_R = 0x16
@@ -237,21 +279,6 @@ separate step?: terminate if all bytes are 0
 decode instruction
     try to lessen code duplication, meaning split before processing
     get opcode, rd/imm[4:0], funct3, rs1, rs2, funct7/imm[11:5]
-        all parts can fit in a byte (decoding crosses boundaries tho)
-        from riscv
-        VUTSRQPO NMLKJIHG FEDCBA98 76543210 little endian instruction
-        6543210 opcode
-        7       rd[0] / Stype imm[0] / Btype imm[11]
-        BA98    rd[4:1] / SBtype imm[4:1]
-        EDC     funct3 / UJtype imm[14:12]
-        F       rs1[0] / UJtype imm[15]
-        JIHG    rs1[4:1] / UJtype imm[19:16]
-        K       rs2[0] / Itype imm[0] / Utype imm[20] / Jtype imm[11]
-        NML     rs2[3:1] / IJtype imm[3:1] / Utype imm[23:21]
-        O       rs[4] / IJtype imm[4] / Utype imm[24]
-        QP      funct7[1:0] / ISBJtype imm[6:5] / Utype imm[26:25]
-        UTSR    funct7[5:2] / ISBJtype imm[10:7] / Utype imm[30:27]
-        V       funct7[6] / IStype imm[11] / Btype imm[12] / Utype imm[31] / Jtype imm[20]
     switch on opcode
         switch on funct3 and funct7 if necessary
         do shit with the parts (rd/rs1/whatever) with first space as temp if needed
@@ -595,8 +622,6 @@ class MemoryHeadData(Struct):
     i = Offset(range(4))
     rwp = Offset(ReadWritePrefix())
 
-# TODO: Maybe optimize by moving landing into _t like below
-# __f1_ijkl_IJKLxyzwn  # n is at least space and moved elsewhere during read/writes
 @pack_class_offsets
 class MemoryHead(Struct):
     """Moving head shifting through memory using an pointer"""
@@ -673,10 +698,6 @@ class MemoryMove:
 # print(MemoryMove.code(rightward=False))
 
 
-# lx will load from x and output it to stdout
-# sxv will store v at x
-
-
 class InterleavedInt(Struct):
     """Structure containing two interleaved 4 byte ints"""
     # - aA1_ bB1_ cC1_ dD1_ ____
@@ -701,14 +722,9 @@ class InterleavedInt(Struct):
             + c(1)
         )
 
-    # move rs1 to abcd
-    # move rs2 to ABCD
-    # - aA1_ bB1_ cC1_ dD1_ ____
-    # if funct7
-        # bitwise negate rs2
-        # https://esolangs.org/wiki/Brainfuck_algorithms#x%C2%B4_=_not_x_(bitwise)
-        # -> >>>> >>>> >>>> >>> +[-<< +[->-<]>[-<+>]<< <+]
-    # calculate rs1 + rs2
+    # Calculate num1 + num2 and store result in num2.
+    # Note that num1 - num2 is the same as num1 + (~num2 + 1).
+    # Remember to clear the MSB after use!
     def add1to2(self):
         assert self._t3[0] - self.num2[0] == self._t4[0] - self._t3[0]
         return at(self._a,
@@ -747,17 +763,9 @@ class InterleavedInt(Struct):
             )
             + c(1)
         )
-        # print(InterleavedInt().add1to2())
-        # -> >>>> >>>> >>>> >>>
-        # +[- <<<d
-        # [->>+<+[>-]> [[->>>>++<+[>--]>] <+[-<<<<] >] <<<]
-        # <+]
-        # move ABCD to rd
-        # clear msb
 
-    # move rs1 to abcd
-    # move rs2 to ABCD
-    # - aA1_ bB1_ cC1_ dD1_
+    # Calculate num1 < num2 and store 1 in num2 if true, otherwise 0.
+    # Note that only num2[0] can be used to check if the expression is true.
     def compare1lessthan2(self):
         assert self._t3[0] - self.num2[0] == self._t4[0] - self._t3[0]
         return at(self._a,
@@ -816,8 +824,6 @@ class InterleavedInt(Struct):
             )
             + c(1)
         )
-        # move ABCD to rd
-        # print(InterleavedInt().compare1lessthan2())
 
 class PairedBits(Struct):
     """Structure containing two interleaved 8 bit pointers"""
@@ -1521,21 +1527,6 @@ def EXECUTE(BB, F, N, xyzw, S, x1, x2, xd, imm):
             # maybe later have a trap
             g(-2),
         ),
-# TODO: minimize head size
-#                                               46   51      59
-#                                          _____ijkl___fnIJKLxyzw_
-#                                         40  44
-#                         24              M   S12dimm.
-#                         rs1.rs2.rd..pc..__FN
-# ___-aA1_bB1_cC1_dD1_____
-# xy-_aAbBcCdDeEfFgGhH__
-#                         abcdABCD
-# [ procedures ]
-
-# to read/write a register
-    # memory move right ( pointer = 4*register ; data pointer = 4*register ; n = 2 )
-# to read/write an address
-    # memory move right ( pointer = 128 ; data pointer = address ; n = 1 )
 
         # case 1:
         [1, join(
@@ -2267,17 +2258,9 @@ def _STORE_2():
 @mark_function
 def _STORE_3():
     h = DECODE_FORMAT(); md = h.mem.data
-#                                               46   51      59
-#                                          _____ijkl___fnIJKLxyzw_
-#                                         40  44
-#                         24              M   S12dimm.
-#                         rs1.rs2.rd..pc..__FN
-# ___-aA1_bB1_cC1_dD1_____
-# xy-_aAbBcCdDeEfFgGhH__
     return join(
         at(h.F, s(0)),
         at(h.rd[1], s(2)),
-        # at(2*[*h.pc], ".") + at(h.rd[0], "."*8),
         loopdown(h.rd[0], at(h.rd[1], c(-1))),
         at(md.rwp._t, s(1)),
         ifnonzero(h.rd[1], join(
@@ -2349,7 +2332,6 @@ def _SLLI_1():
             move(md.rwp.data[1], md.rwp.data[2]),
             move(md.rwp.data[0], md.rwp.data[1]),
         )),
-        # at(h.F, s(ERROR.f)) + at(h.N, s(0x69)), ) or (
         ifnonzero(h.rd[1], join(
 #                                               46   51      59
 #                                          _____ijkl___fnIJKLxyzw_
@@ -2486,7 +2468,6 @@ def _SRLI_1():
         move(BBB[0], h.rd[3]),
         move(h.rd[1], BBB[0]),
         ifnonzero(BBB[0], join(
-            # at(h.rd[2], c(1)),
             at(h.rd[1], s(8)),
             loopdown(BBB[0], at(h.rd[1], c(-1))),
         )),
@@ -2498,15 +2479,7 @@ def _SRLI_1():
             move(h.rd[3], BBB[0]),
             ifnonzero(BBB[0], at(h.rd[3], c(1)) + at(md.rwp.data[3], c(-1))),
         )),
-        # at(h.F, s(ERROR.f)) + at(h.N, s(0x69)), ) or (
         ifnonzero(h.rd[1], join(
-#                                               46   51      59
-#                                          _____ijkl___fnIJKLxyzw_
-#                                         40  44
-#                         24              M   S12dimm.
-#                         rs1.rs2.rd..pc..__FN
-# ___-aA1_bB1_cC1_dD1_____
-# xy-_aAbBcCdDeEfFgGhH__
 
             move(h.rd[1], [h.rd[2], *md.i]),
             # got 8-bit
@@ -2749,7 +2722,8 @@ def _ADD_1():
 def _SUB_1():
     h = DECODE_FORMAT(); md = h.mem.data
     return join(
-        # invert all bits
+        # Invert all bits. Note that ~x == -(x+1)
+        # https://esolangs.org/wiki/Brainfuck_algorithms#x%C2%B4_=_not_x_(bitwise)
         join(at(md.rwp.data[i], c(+1)) + loopdown(md.rwp.data[i], at(h.rs2[i], c(-1))) for i in range(len(md.rwp.data))),
         # add 1
         at(h.rs1[0], s(1)),
