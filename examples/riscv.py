@@ -1,5 +1,49 @@
-"""A simple RISC-V 32I emulator in Brainfuck"""
+"""A simple RISC-V 32I emulator in Brainfuck
 
+Run `python -m examples.riscv --output-mainloop` to output just the mainloop,
+where SYSTEM and FENCE instructions break out of the mainloop. If all memory is
+zero, PC should start at offset 192 (since the movable head is 64 bytes).
+
+`--output-simple-iobreak` outputs the mainloop along with wrapper code that
+handles ECALLs, where a7 is either 0, 1, or 2. If a7 is 0, one byte of input is
+read into a0. If a7 is 1, a0 is output. If a7 is 2, the wrapper code exits.
+FENCEs are ignored, and EBREAKs trigger a memory dump if the Brainfuck
+interpreter supports `#`.
+
+`--convert-hex-to-bf` takes in big-endian hex-encoded data with 4 bytes on each
+line, and outputs Brainfuck code that initializes memory to the data.
+`--offset` specifies where to start initializing memory, which is 256 if using
+the `--output-simple-iobreak` wrapper code (64 from wrapper, 64 from the head,
+128 from registers).
+
+```shell
+python -m examples.riscv --convert-hex-to-bf --offset 256 < in.hex > out.bf
+python -m examples.riscv --output-simple-iobreak >> out.bf
+```
+
+An example in.hex which echoes out all input given:
+```
+# loop:   li  a0, 0
+#         li  a7, 0
+#         ecall
+#         beqz  a0, exit
+#         li a7, 1
+#         ecall
+#         j  loop
+# exit:   li a7, 2
+#         ecall
+00000513
+00000893
+00000073
+00050863
+00100893
+00000073
+fe9ff06f
+00200893
+00000073
+```
+
+"""
 from beafraid import *
 from .s4op import pack_class_offsets, shift, size, start, Struct, Offset
 
@@ -3005,6 +3049,7 @@ if __name__ == "__main__":
             value
             for part in inp.split()
             if part.strip()
+            if not part.strip().startswith("#")
             for value in int(part.strip(), 16).to_bytes(5, "little", signed=True)[:4]
         ]))
         import compressbf; code = compressbf.compress(","+code)[1:]
