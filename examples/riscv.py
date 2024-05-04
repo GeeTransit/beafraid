@@ -21,26 +21,58 @@ python -m examples.riscv --convert-hex-to-bf --offset 256 < in.hex > out.bf
 python -m examples.riscv --output-simple-iobreak >> out.bf
 ```
 
-An example in.hex which echoes out all input given:
+An example in.hex which echoes out all input given, with line buffering:
 ```
-# loop:   li  a0, 0
+# .text
+#         li  t2, 10
+# main:   la  t0, buff
 #         li  a7, 0
+# loopR:  li  a0, 0
 #         ecall
-#         beqz  a0, exit
-#         li a7, 1
+#         beq  a0, zero, endM
+#         sb  a0, (t0)
+#         addi  t0, t0, 1
+#         bne  a0, t2, loopR
+#         jal  write
+#         j  main
+# endM:   jal  write
+#         li  a7, 2
 #         ecall
-#         j  loop
-# exit:   li a7, 2
+# write:  la  t1, buff
+# loopW:  beq  t1, t0, endW
+#         lb  a0, (t1)
+#         li  a7, 1
 #         ecall
-00000513
+#         addi  t1, t1, 1
+#         j  loopW
+# endW:   ret
+# .data
+# buff:
+# .zero 100
+00a00393
+00000297
+05c28293
 00000893
+00000513
 00000073
-00050863
-00100893
-00000073
-fe9ff06f
+00050c63
+00a28023
+00128293
+fe7516e3
+014000ef
+fd9ff06f
+00c000ef
 00200893
 00000073
+00000317
+02430313
+00530c63
+00030503
+00100893
+00000073
+00130313
+fedff06f
+00008067
 ```
 
 """
