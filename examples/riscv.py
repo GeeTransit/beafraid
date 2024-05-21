@@ -3068,7 +3068,7 @@ if __name__ == "__main__":
         for i in range(len(code))[::80]:
             print(code[i:i+80])
 
-    elif "--convert-hex-to-bf" in sys.argv or "--convert-bin-to-bf" in sys.argv:
+    elif "--convert-hex-to-bf" in sys.argv or "--convert-bin-to-bf" in sys.argv or "--convert-hex-to-bin" in sys.argv:
         if "--offset" in sys.argv:
             i = sys.argv.index("--offset")
             sys.argv.pop(i)
@@ -3077,17 +3077,20 @@ if __name__ == "__main__":
             amount = 0
         import sys
         if "--convert-bin-to-bf" in sys.argv:
-            inp = sys.stdin.buffer.read()
-            code = at(amount, init(inp))
+            data = sys.stdin.buffer.read()
         else:
             inp = sys.stdin.read()
-            code = at(amount, init([
+            data = [
                 value
                 for part in inp.split()
                 if part.strip()
                 if not part.strip().startswith("#")
                 for value in int(part.strip(), 16).to_bytes(5, "little", signed=True)[:4]
-            ]))
+            ]
+        if "--convert-hex-to-bin" in sys.argv:
+            sys.stdout.buffer.write(bytearray(data))
+            sys.exit(0)
+        code = at(amount, init(data))
         import compressbf; code = compressbf.compress(","+code)[1:]
         class KeepCharsTable:
             def __init__(self, keepchars): self.keepchars = keepchars
