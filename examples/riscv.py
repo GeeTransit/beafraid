@@ -3082,7 +3082,7 @@ if __name__ == "__main__":
             inp = sys.stdin.read()
             data = [
                 value
-                for part in inp.split()
+                for part in inp.splitlines()
                 if part.strip()
                 if not part.strip().startswith("#")
                 for value in int(part.strip(), 16).to_bytes(5, "little", signed=True)[:4]
