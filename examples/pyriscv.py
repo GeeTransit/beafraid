@@ -60,7 +60,7 @@ def step(pc, regs, mem):
         funct3 = btoi(instr[12:15])
         rs1 = btoi(instr[15:20])
         funct7 = btoi(instr[25:32])
-        imm = btoi(instr[20:32], signed=True)
+        imm = wrap(btoi(instr[20:32], signed=True))
         if [funct3] == [0x0]:  # ADDI
             regs[rd] = wrap(regs[rs1] + imm)
         elif [funct3, funct7] == [0x1, 0x00]:  # SLLI
@@ -76,9 +76,9 @@ def step(pc, regs, mem):
         elif [funct3, funct7] == [0x5, 0x20]:  # SRA
             regs[rd] = wrap(signed(regs[rs1]) >> (imm%32))
         elif [funct3] == [0x6]:  # OR
-            regs[rd] = wrap(regs[rs1] | imm)
+            regs[rd] = regs[rs1] | imm
         elif [funct3] == [0x7]:  # AND
-            regs[rd] = wrap(regs[rs1] & imm)
+            regs[rd] = regs[rs1] & imm
         else:
             assert False, [opcode, funct3, funct7]
 
